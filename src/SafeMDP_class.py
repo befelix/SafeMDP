@@ -263,7 +263,7 @@ class SafeMDP(object):
         self.update_confidence_interval()
         self.S = self.l >= self.h
 
-        # Actions that takes agent out of boundaries are assumed to be unsafe !!!!!!NEED TO CHANGE THIS IN REAL S TOO
+        # Actions that takes agent out of boundaries are assumed to be unsafe
         n, m = self.world_shape
         self.S[m-1:m*(n+1)-1:m, 1] = False
         self.S[(n-1)*m:n*m, 2] = False
@@ -405,6 +405,13 @@ class SafeMDP(object):
             next_mat_ind = self.dynamics(self.ind, action)
             next_vec_ind = mat2vec(next_mat_ind, self.world_shape)
             true_safe[:, action] = ((self.altitudes - self.altitudes[next_vec_ind])/self.step_size[0]) >= self.h
+
+        # (s, a) pairs that lead out of boundaries are not safe
+        n, m = self.world_shape
+        true_safe[m-1:m*(n+1)-1:m, 1] = False
+        true_safe[(n-1)*m:n*m, 2] = False
+        true_safe[0:n*m:m, 3] = False
+        true_safe[0:m, 4] = False
         return true_safe
 
     def compute_true_S_hat(self):
@@ -592,7 +599,7 @@ kernel = GPy.kern.RBF(input_dim=2, lengthscale=(2., 2.), variance=1., ARD=True)
 lik = GPy.likelihoods.Gaussian(variance=noise ** 2)
 lik.constrain_bounded(1e-6, 10000.)
 
-world_shape = (40, 40)
+world_shape = (30, 30)
 step_size = (0.5, 0.5)
 altitudes, coord = draw_GP(kernel, world_shape, step_size)
 #fig = plt.figure()
@@ -609,7 +616,7 @@ gp = GPy.core.GP(X, Y, kernel, lik)
 S0 = np.zeros((np.prod(world_shape), 5), dtype=bool)
 S0[:, 0] = True
 S_hat0 = np.nan
-h = -0.8
+h = -0.9
 
 # Define SafeMDP object
 x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise)
@@ -627,7 +634,7 @@ x.gp.set_XY(x.gp.X[200:, :], x.gp.Y[200:])
 l_old = np.copy(x.l)
 
 t = time.time()
-for i in range(60):
+for i in range(100):
 #    x.plot_S(x.S_hat)
 #    x.plot_S(x.S)
     x.update_sets()
