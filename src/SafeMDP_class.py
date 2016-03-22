@@ -264,7 +264,11 @@ class SafeMDP(object):
         self.S = self.l >= self.h
 
         # Actions that takes agent out of boundaries are assumed to be unsafe !!!!!!NEED TO CHANGE THIS IN REAL S TOO
-        
+        n, m = self.world_shape
+        self.S[m-1:m*(n+1)-1:m, 1] = False
+        self.S[(n-1)*m:n*m, 2] = False
+        self.S[0:n*m:m, 3] = False
+        self.S[0:m, 4] = False
 
         self.reach[:] = self.S_hat
         self.ret[:] = self.S_hat
@@ -588,13 +592,13 @@ kernel = GPy.kern.RBF(input_dim=2, lengthscale=(2., 2.), variance=1., ARD=True)
 lik = GPy.likelihoods.Gaussian(variance=noise ** 2)
 lik.constrain_bounded(1e-6, 10000.)
 
-world_shape = (30, 30)
+world_shape = (40, 40)
 step_size = (0.5, 0.5)
 altitudes, coord = draw_GP(kernel, world_shape, step_size)
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.plot_trisurf(coord[:, 0], coord[:, 1], altitudes)
-plt.show()
+#fig = plt.figure()
+#ax = fig.add_subplot(111, projection='3d')
+#ax.plot_trisurf(coord[:, 0], coord[:, 1], altitudes)
+#plt.show()
 
 beta = 3
 ind = np.random.choice(range(coord.shape[0]), 200)
@@ -623,15 +627,11 @@ x.gp.set_XY(x.gp.X[200:, :], x.gp.Y[200:])
 l_old = np.copy(x.l)
 
 t = time.time()
-for i in range(100):
+for i in range(60):
 #    x.plot_S(x.S_hat)
 #    x.plot_S(x.S)
     x.update_sets()
     x.target_sample()
-    index = np.random.choice(x.S.shape[0])
-    s = x.ind[index, :]
-    a = np.random.choice(np.arange(1, x.S.shape[1]))
-    # x.add_obs(s, a)
     x.add_obs(x.target_state, x.target_action)
     target_state_vec_ind = mat2vec(x.target_state, x.world_shape)
     next_state = x.dynamics(x.target_state, x.target_action)
@@ -643,22 +643,7 @@ for i in range(100):
     print("Max uncertainty of S_hat "+ str(np.max(w[x.S_hat])))
     print (x.target_state, x.target_action)
     print(i)
-    #x.plot_S(x.S_hat)
-    #plt.show()
-    #x.plot_S(x.S)
-    # fig = plt.figure()
-    # ax = fig.add_subplot(111, projection='3d')
-    # mu, s = x.gp._raw_predict(x.coord)
-    # print(np.max(mu))
-    # ax.plot_trisurf(coord[:, 0], coord[:, 1], mu.squeeze())
-    # plt.show()
-    # # plt.plot(x.l[:, 1]-l_old[:, 1])
-    # plt.title("going up")
-    # plt.show()
-    # plt.plot(x.l[:, 2]-l_old[:, 2])
-    # plt.title("going down")
-    # plt.show()
-    # l_old[:] = x.l
+
 print (str(time.time() - t) + "seconds elapsed")
 x.plot_S(x.S_hat)
 x.plot_S(x.true_S_hat)
