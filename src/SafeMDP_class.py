@@ -3,6 +3,10 @@ import numpy as np
 import GPy
 import time
 import matplotlib.pyplot as plt
+from scipy.spatial.distance import cdist
+from osgeo import gdal
+
+
 
 
 class SafeMDP(object):
@@ -84,7 +88,6 @@ class SafeMDP(object):
         """
         # Predict safety feature
         mu, s = self.gp.predict_jacobian(self.coord, full_cov=False)
-        print(np.all(s >= 0))
         mu = np.squeeze(mu)
 
         # Initialize mean and variance over abstract MDP
@@ -312,14 +315,14 @@ class SafeMDP(object):
 
         # Observation of previous state
         state_vec_ind = mat2vec(state_mat_ind, self.world_shape)
-        obs_state = self.altitudes[state_vec_ind] + self.noise*np.random.randn(1)
+        obs_state = self.altitudes[state_vec_ind] # + self.noise*np.random.randn(1)
         tmpX = np.vstack((self.gp.X, self.coord[state_vec_ind, :].reshape(1, 2)))
         tmpY = np.vstack((self.gp.Y, obs_state))
 
         # Observation of next state
         next_state_mat_ind = self.dynamics(state_mat_ind, action)
         next_state_vec_ind = mat2vec(next_state_mat_ind, self.world_shape)
-        obs_next_state = self.altitudes[next_state_vec_ind] + self.noise*np.random.randn(1)
+        obs_next_state = self.altitudes[next_state_vec_ind] # + self.noise*np.random.randn(1)
 
         # Update observations
         tmpX = np.vstack((tmpX, self.coord[next_state_vec_ind, :].reshape(1, 2)))
@@ -594,65 +597,111 @@ def draw_GP(kernel, world_shape, step_size):
 # x.target_sample()
 # x.add_obs(x.target_state, x.target_action)
 
-noise = 0.001
-kernel = GPy.kern.RBF(input_dim=2, lengthscale=(2., 2.), variance=1., ARD=True)
-lik = GPy.likelihoods.Gaussian(variance=noise ** 2)
-lik.constrain_bounded(1e-6, 10000.)
-
+mars = True
 world_shape = (30, 30)
 step_size = (0.5, 0.5)
-altitudes, coord = draw_GP(kernel, world_shape, step_size)
-#fig = plt.figure()
-#ax = fig.add_subplot(111, projection='3d')
-#ax.plot_trisurf(coord[:, 0], coord[:, 1], altitudes)
-#plt.show()
+if mars:
+    noise = 0.001
+    kernel = GPy.kern.RBF(input_dim=2, lengthscale=7., variance=64.)
+    lik = GPy.likelihoods.Gaussian(variance=noise**2)
+    world_shape = (50, 100)
+    step_size = (1., 1.)
+    gdal.UseExceptions()
+    ds = gdal.Open("/Users/matteoturchetta/PycharmProjects/SafeMDP/src/mars.tif")
+    band = ds.GetRasterBand(1)
+    elevation = band.ReadAsArray()
+    startX = 11370
+    startY = 3110
+    altitudes = np.copy(elevation[startX:startX+world_shape[0], startY:startY+world_shape[1]])
+    mean_val = (np.max(altitudes) + np.min(altitudes))/2.
+    altitudes[:] = altitudes - mean_val
+    plt.imshow(altitudes.T, origin="lower", interpolation="nearest")
+    plt.colorbar()
+    plt.show()
+    altitudes = altitudes.flatten()
+    n, m = world_shape
+    step1, step2 = step_size
+    xx, yy = np.meshgrid(np.linspace(0, (n-1) * step1, n), np.linspace(0, (m-1)*step2, m), indexing="ij")
+    coord = np.vstack((xx.flatten(), yy.flatten())).T
+    h = -np.tan(np.pi/6.)
+else:
+    noise = 0.001
+    kernel = GPy.kern.RBF(input_dim=2, lengthscale=(2., 2.), variance=1., ARD=True)
+    lik = GPy.likelihoods.Gaussian(variance=noise ** 2)
+    lik.constrain_bounded(1e-6, 10000.)
+    h = -0.9
+    altitudes, coord = draw_GP(kernel, world_shape, step_size)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_trisurf(coord[:, 0], coord[:, 1], altitudes)
+    plt.show()
 
-beta = 3
-ind = np.random.choice(range(coord.shape[0]), 200)
+beta = 2
+n_samples = 500
+ind = np.random.choice(range(altitudes.size), n_samples)
 X = coord[ind, :]
-Y = altitudes[ind].reshape(200, 1) + np.random.randn(200, 1)
+Y = altitudes[ind].reshape(n_samples, 1) + np.random.randn(n_samples, 1)
 gp = GPy.core.GP(X, Y, kernel, lik)
-#gp.optimize()
+#gp.optimize_restarts(num_restarts=1)
+print(gp)
 S0 = np.zeros((np.prod(world_shape), 5), dtype=bool)
 S0[:, 0] = True
 S_hat0 = np.nan
-h = -0.9
+
+# Initialize for performance
+lengthScale = np.linspace(6.5, 7., num=3)
+size_true_S_hat = np.empty_like(lengthScale, dtype=int)
+size_S_hat = np.empty_like(lengthScale, dtype=int)
+true_S_hat_minus_S_hat = np.empty_like(lengthScale, dtype=int)
+S_hat_minus_true_S_hat = np.empty_like(lengthScale, dtype=int)
 
 # Define SafeMDP object
-x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise)
+for index, length in enumerate(lengthScale):
+    noise = 0.04
+    kernel = GPy.kern.RBF(input_dim=2, lengthscale=length, variance=121.)
+    lik = GPy.likelihoods.Gaussian(variance=noise**2)
+    gp = GPy.core.GP(X, Y, kernel, lik)
 
-# Insert samples from (s, a) in S_hat0 and remove samples used for optimizing hyperparameters
-tmp = np.arange(x.ind.shape[0])
-s_vec_ind = tmp[np.any(x.S_hat[:, 1:], axis=1)]
-state = vec2mat(s_vec_ind, x.world_shape).T
-tmp = np.arange(1, x.S.shape[1])
-actions = tmp[x.S_hat[s_vec_ind, 1:].squeeze()]
-for i in range(1):
-    x.add_obs(state, np.random.choice(actions))
-x.gp.set_XY(x.gp.X[200:, :], x.gp.Y[200:])
+    x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise)
 
-l_old = np.copy(x.l)
+    # Insert samples from (s, a) in S_hat0 and remove samples used for optimizing hyperparameters
+    tmp = np.arange(x.ind.shape[0])
+    s_vec_ind = tmp[np.any(x.S_hat[:, 1:], axis=1)]
+    state = vec2mat(s_vec_ind, x.world_shape).T
+    tmp = np.arange(1, x.S.shape[1])
+    actions = tmp[x.S_hat[s_vec_ind, 1:].squeeze()]
+    for i in range(1):
+        x.add_obs(state, np.random.choice(actions))
+    x.gp.set_XY(x.gp.X[n_samples:, :], x.gp.Y[n_samples:])
 
-t = time.time()
-for i in range(100):
-#    x.plot_S(x.S_hat)
-#    x.plot_S(x.S)
-    x.update_sets()
-    x.target_sample()
-    x.add_obs(x.target_state, x.target_action)
-    target_state_vec_ind = mat2vec(x.target_state, x.world_shape)
-    next_state = x.dynamics(x.target_state, x.target_action)
-    next_state_vec_ind = mat2vec(next_state, x.world_shape)
-    target_state_coord = x.coord[target_state_vec_ind, :]
-    next_state_coord = x.coord[next_state_vec_ind, :]
-    w = x.u - x.l
-    print("w of target (s, a) " + str(x.u[target_state_vec_ind, x.target_action] - x.l[target_state_vec_ind, x.target_action]))
-    print("Max uncertainty of S_hat "+ str(np.max(w[x.S_hat])))
-    print (x.target_state, x.target_action)
-    print(i)
+    l_old = np.copy(x.l)
 
-print (str(time.time() - t) + "seconds elapsed")
-x.plot_S(x.S_hat)
-x.plot_S(x.true_S_hat)
-print(np.sum(np.logical_and(x.true_S_hat, np.logical_not(x.S_hat))))  # in true S_hat and not S_hat
-print(np.sum(np.logical_and(x.S_hat, np.logical_not(x.true_S_hat))))
+    t = time.time()
+    for i in range(150):
+    #    x.plot_S(x.S_hat)
+    #    x.plot_S(x.S)
+        x.update_sets()
+        x.target_sample()
+        x.add_obs(x.target_state, x.target_action)
+        # target_state_vec_ind = mat2vec(x.target_state, x.world_shape)
+        # next_state = x.dynamics(x.target_state, x.target_action)
+        # next_state_vec_ind = mat2vec(next_state, x.world_shape)
+        # target_state_coord = x.coord[target_state_vec_ind, :]
+        # next_state_coord = x.coord[next_state_vec_ind, :]
+        # w = x.u - x.l
+        # print("w of target (s, a) " + str(x.u[target_state_vec_ind, x.target_action] - x.l[target_state_vec_ind, x.target_action]))
+        # print("Max uncertainty of S_hat "+ str(np.max(w[x.S_hat])))
+        # print (x.target_state, x.target_action)
+        # print(i)
+
+    print (str(time.time() - t) + "seconds elapsed")
+    print(length)
+    x.plot_S(x.S_hat)
+    x.plot_S(x.true_S_hat)
+    print(np.sum(np.logical_and(x.true_S_hat, np.logical_not(x.S_hat))))  # in true S_hat and not S_hat
+    print(np.sum(np.logical_and(x.S_hat, np.logical_not(x.true_S_hat))))
+    size_S_hat[index] = np.sum(x.S_hat)
+    size_true_S_hat[index] = np.sum(x.true_S_hat)
+    true_S_hat_minus_S_hat[index] = np.sum(np.logical_and(x.true_S_hat, np.logical_not(x.S_hat)))
+    S_hat_minus_true_S_hat[index] = np.sum(np.logical_and(x.S_hat, np.logical_not(x.true_S_hat)))
+bla = 1
