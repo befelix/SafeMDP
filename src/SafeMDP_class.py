@@ -556,54 +556,12 @@ def draw_GP(kernel, world_shape, step_size):
 
 # test
 #if __name__ == "main":
-# kernel = GPy.kern.RBF(input_dim=2, lengthscale=(1., 1.), variance=1., ARD=True)
-# lik = GPy.likelihoods.Gaussian(variance=1)
-# lik.constrain_bounded(1e-5, 10000.)
-# X = np.random.rand(200, 2)
-# Y = (np.sin(X[:, 0]) + np.cos(X[:, 1]*2.)).reshape(200, 1) + 0.01*np.random.randn(200, 1)
-# gp = GPy.core.GP(X, Y, kernel, lik)
-# gp.optimize()
-# print(gp)
-#
-# world_shape = (11, 11)
-# step_size = (0.1, 0.1)
-# beta = 3
-# altitudes = np.random.rand(world_shape[0], world_shape[1]).reshape(np.prod(world_shape))
-# noise = 0.1
-# h = -10
-# S0 = np.ones((np.prod(world_shape), 5), dtype=bool)
-# S0[1, 2] = False
-# S0[world_shape[1], 1] = False
-# S0[world_shape[1]+2, 3] = False
-# S0[world_shape[1]*2 + 1, 4] = False
-#
-# S0[5, 1] = False
-# S0[5, 2] = False
-# S0[5, 3] = False
-# S0[5, 4] = False
-#
-# S_hat0 = np.zeros((np.prod(world_shape), 5), dtype=bool)
-# S_hat0[0, 0] = True
-# S_hat0 = np.nan
-# x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise)
-#
-#
-# t = time.time()
-# x.update_sets()
-# print (str(time.time() - t) + "seconds elapsed")
-# x.plot_S(x.reach)
-# x.plot_S(x.ret)
-# x.update_confidence_interval()
-# x.target_sample()
-# x.add_obs(x.target_state, x.target_action)
 
-mars = True
-world_shape = (30, 30)
-step_size = (0.5, 0.5)
+mars = False
+
 if mars:
-    noise = 0.001
-    kernel = GPy.kern.RBF(input_dim=2, lengthscale=7., variance=64.)
-    lik = GPy.likelihoods.Gaussian(variance=noise**2)
+
+    # Extract and plot Mars data
     world_shape = (50, 100)
     step_size = (1., 1.)
     gdal.UseExceptions()
@@ -615,56 +573,132 @@ if mars:
     altitudes = np.copy(elevation[startX:startX+world_shape[0], startY:startY+world_shape[1]])
     mean_val = (np.max(altitudes) + np.min(altitudes))/2.
     altitudes[:] = altitudes - mean_val
+
     plt.imshow(altitudes.T, origin="lower", interpolation="nearest")
     plt.colorbar()
     plt.show()
     altitudes = altitudes.flatten()
+
+    # Define coordinates
     n, m = world_shape
     step1, step2 = step_size
     xx, yy = np.meshgrid(np.linspace(0, (n-1) * step1, n), np.linspace(0, (m-1)*step2, m), indexing="ij")
     coord = np.vstack((xx.flatten(), yy.flatten())).T
+
+    # Safety threshold
     h = -np.tan(np.pi/6.)
+
+    # Scaling factor for confidence interval
+    beta = 2
+
+    # Initialize safe sets
+    S0 = np.zeros((np.prod(world_shape), 5), dtype=bool)
+    S0[:, 0] = True
+    S_hat0 = np.nan
+
+    # Initialize for performance
+    lengthScale = np.linspace(6.5, 7., num=2)
+    size_true_S_hat = np.empty_like(lengthScale, dtype=int)
+    size_S_hat = np.empty_like(lengthScale, dtype=int)
+    true_S_hat_minus_S_hat = np.empty_like(lengthScale, dtype=int)
+    S_hat_minus_true_S_hat = np.empty_like(lengthScale, dtype=int)
+
+    # Initialize data for GP
+    n_samples = 1
+    ind = np.random.choice(range(altitudes.size), n_samples)
+    X = coord[ind, :]
+    Y = altitudes[ind].reshape(n_samples, 1) + np.random.randn(n_samples, 1)
+
+    for index, length in enumerate(lengthScale):
+
+        # Define and initialize GP
+        noise = 0.04
+        kernel = GPy.kern.RBF(input_dim=2, lengthscale=length, variance=121.)
+        lik = GPy.likelihoods.Gaussian(variance=noise**2)
+        gp = GPy.core.GP(X, Y, kernel, lik)
+
+        # Define SafeMDP object
+        x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise)
+
+        # Insert samples from (s, a) in S_hat0
+        tmp = np.arange(x.ind.shape[0])
+        s_vec_ind = tmp[np.any(x.S_hat[:, 1:], axis=1)]
+        state = vec2mat(s_vec_ind, x.world_shape).T
+        tmp = np.arange(1, x.S.shape[1])
+        actions = tmp[x.S_hat[s_vec_ind, 1:].squeeze()]
+        for i in range(1):
+            x.add_obs(state, np.random.choice(actions))
+
+        # Remove samples used for GP initialization and possibly hyperparameters optimization
+        x.gp.set_XY(x.gp.X[n_samples:, :], x.gp.Y[n_samples:])
+
+        t = time.time()
+        for i in range(50):
+            x.update_sets()
+            x.target_sample()
+            x.add_obs(x.target_state, x.target_action)
+            # print (x.target_state, x.target_action)
+            # print(i)
+        print (str(time.time() - t) + "seconds elapsed")
+
+        # Plot safe sets
+        x.plot_S(x.S_hat)
+        x.plot_S(x.true_S_hat)
+
+        # Print and store performance
+        print(np.sum(np.logical_and(x.true_S_hat, np.logical_not(x.S_hat))))  # in true S_hat and not S_hat
+        print(np.sum(np.logical_and(x.S_hat, np.logical_not(x.true_S_hat))))  # in S_hat and not true S_hat
+        size_S_hat[index] = np.sum(x.S_hat)
+        size_true_S_hat[index] = np.sum(x.true_S_hat)
+        true_S_hat_minus_S_hat[index] = np.sum(np.logical_and(x.true_S_hat, np.logical_not(x.S_hat)))
+        S_hat_minus_true_S_hat[index] = np.sum(np.logical_and(x.S_hat, np.logical_not(x.true_S_hat)))
+
 else:
+    # Define world
+    world_shape = (30, 30)
+    step_size = (0.5, 0.5)
+
+    # Define GP
     noise = 0.001
     kernel = GPy.kern.RBF(input_dim=2, lengthscale=(2., 2.), variance=1., ARD=True)
     lik = GPy.likelihoods.Gaussian(variance=noise ** 2)
     lik.constrain_bounded(1e-6, 10000.)
-    h = -0.9
+
+    # Sample and plot world
     altitudes, coord = draw_GP(kernel, world_shape, step_size)
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     ax.plot_trisurf(coord[:, 0], coord[:, 1], altitudes)
     plt.show()
 
-beta = 2
-n_samples = 500
-ind = np.random.choice(range(altitudes.size), n_samples)
-X = coord[ind, :]
-Y = altitudes[ind].reshape(n_samples, 1) + np.random.randn(n_samples, 1)
-gp = GPy.core.GP(X, Y, kernel, lik)
-#gp.optimize_restarts(num_restarts=1)
-print(gp)
-S0 = np.zeros((np.prod(world_shape), 5), dtype=bool)
-S0[:, 0] = True
-S_hat0 = np.nan
+    # Define coordinates
+    n, m = world_shape
+    step1, step2 = step_size
+    xx, yy = np.meshgrid(np.linspace(0, (n-1) * step1, n), np.linspace(0, (m-1)*step2, m), indexing="ij")
+    coord = np.vstack((xx.flatten(), yy.flatten())).T
 
-# Initialize for performance
-lengthScale = np.linspace(6.5, 7., num=3)
-size_true_S_hat = np.empty_like(lengthScale, dtype=int)
-size_S_hat = np.empty_like(lengthScale, dtype=int)
-true_S_hat_minus_S_hat = np.empty_like(lengthScale, dtype=int)
-S_hat_minus_true_S_hat = np.empty_like(lengthScale, dtype=int)
+    # Safety threhsold
+    h = -0.9
 
-# Define SafeMDP object
-for index, length in enumerate(lengthScale):
-    noise = 0.04
-    kernel = GPy.kern.RBF(input_dim=2, lengthscale=length, variance=121.)
-    lik = GPy.likelihoods.Gaussian(variance=noise**2)
+    # Scaling factor for confidence interval
+    beta = 2
+
+    # Data to initialize GP
+    n_samples = 1
+    ind = np.random.choice(range(altitudes.size), n_samples)
+    X = coord[ind, :]
+    Y = altitudes[ind].reshape(n_samples, 1) + np.random.randn(n_samples, 1)
     gp = GPy.core.GP(X, Y, kernel, lik)
 
+    # Initialize safe sets
+    S0 = np.zeros((np.prod(world_shape), 5), dtype=bool)
+    S0[:, 0] = True
+    S_hat0 = np.nan
+
+    # Define SafeMDP object
     x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise)
 
-    # Insert samples from (s, a) in S_hat0 and remove samples used for optimizing hyperparameters
+   # Insert samples from (s, a) in S_hat0
     tmp = np.arange(x.ind.shape[0])
     s_vec_ind = tmp[np.any(x.S_hat[:, 1:], axis=1)]
     state = vec2mat(s_vec_ind, x.world_shape).T
@@ -672,36 +706,23 @@ for index, length in enumerate(lengthScale):
     actions = tmp[x.S_hat[s_vec_ind, 1:].squeeze()]
     for i in range(1):
         x.add_obs(state, np.random.choice(actions))
-    x.gp.set_XY(x.gp.X[n_samples:, :], x.gp.Y[n_samples:])
 
-    l_old = np.copy(x.l)
+    # Remove samples used for GP initialization
+    x.gp.set_XY(x.gp.X[n_samples:, :], x.gp.Y[n_samples:])
 
     t = time.time()
     for i in range(150):
-    #    x.plot_S(x.S_hat)
-    #    x.plot_S(x.S)
         x.update_sets()
         x.target_sample()
         x.add_obs(x.target_state, x.target_action)
-        # target_state_vec_ind = mat2vec(x.target_state, x.world_shape)
-        # next_state = x.dynamics(x.target_state, x.target_action)
-        # next_state_vec_ind = mat2vec(next_state, x.world_shape)
-        # target_state_coord = x.coord[target_state_vec_ind, :]
-        # next_state_coord = x.coord[next_state_vec_ind, :]
-        # w = x.u - x.l
-        # print("w of target (s, a) " + str(x.u[target_state_vec_ind, x.target_action] - x.l[target_state_vec_ind, x.target_action]))
-        # print("Max uncertainty of S_hat "+ str(np.max(w[x.S_hat])))
-        # print (x.target_state, x.target_action)
-        # print(i)
+        print("Iteration:   " + str(i))
 
     print (str(time.time() - t) + "seconds elapsed")
-    print(length)
+
+    # Plot safe sets
     x.plot_S(x.S_hat)
     x.plot_S(x.true_S_hat)
+
+    # Classification performance
     print(np.sum(np.logical_and(x.true_S_hat, np.logical_not(x.S_hat))))  # in true S_hat and not S_hat
     print(np.sum(np.logical_and(x.S_hat, np.logical_not(x.true_S_hat))))
-    size_S_hat[index] = np.sum(x.S_hat)
-    size_true_S_hat[index] = np.sum(x.true_S_hat)
-    true_S_hat_minus_S_hat[index] = np.sum(np.logical_and(x.true_S_hat, np.logical_not(x.S_hat)))
-    S_hat_minus_true_S_hat[index] = np.sum(np.logical_and(x.S_hat, np.logical_not(x.true_S_hat)))
-bla = 1
