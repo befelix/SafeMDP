@@ -7,10 +7,8 @@ from scipy.spatial.distance import cdist
 from osgeo import gdal
 
 
-
-
 class SafeMDP(object):
-    def __init__(self, gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise):
+    def __init__(self, gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise, L):
 
         self.gp = gp
     #    self.kernel = gp.kern
@@ -26,6 +24,12 @@ class SafeMDP(object):
 
         # Threshold
         self.h = h
+
+        # Lipschitz
+        self.L = L
+
+        # Distances
+        self.d = cdist(self.coord, self.coord)
 
         # Safe and expanders sets
         self.S = S0
@@ -259,6 +263,22 @@ class SafeMDP(object):
         self.ret[:] = recover_to_ret
         return changed
 
+    def compute_expanders(self):  # NEED TO CHECK IF WE ALWAYS NEED S_HAT
+        self.G[:] = False
+        states_ind = np.arange(self.S_hat.shape[0])
+        for action in range(1, self.S_hat.shape[1]):
+
+            # Extract distance from safe points to non safe ones
+            dist_tmp = self.d[np.ix_(self.S_hat[:, action], np.logical_not(self.S_hat[:, action]))]
+
+            # Find states for which (s, action) is in S_hat
+            non_zeros = states_ind[self.S_hat[:, action]]
+
+            # Check condition for expanders
+            expanders = non_zeros[np.any(self.u[self.S_hat[:, action], action:action+1] - self.L*dist_tmp >= self.h, axis=1)]
+            if expanders.size != 0:
+                self.G[expanders, action] = True
+
     def update_sets(self):
         """
         Updates the sets S, S_hat and G taking with the available observation
@@ -281,6 +301,8 @@ class SafeMDP(object):
         while self.r_ret():
             pass
         self.S_hat[:] = np.logical_or(self.S_hat, np.logical_and(self.reach, self.ret))
+
+        self.compute_expanders()
 
     def plot_S(self, S):
         """
@@ -343,7 +365,7 @@ class SafeMDP(object):
         ind = np.argmax(w)
         state = non_z[0][ind]
 
-        # Staore (s, a) pair
+        # Store (s, a) pair
         self.target_state[:] = vec2mat(state, self.world_shape)
         self.target_action = non_z[1][ind]
 
@@ -588,6 +610,9 @@ if mars:
     # Safety threshold
     h = -np.tan(np.pi/6.)
 
+    # Lipschitz
+    L = 0
+
     # Scaling factor for confidence interval
     beta = 2
 
@@ -618,7 +643,7 @@ if mars:
         gp = GPy.core.GP(X, Y, kernel, lik)
 
         # Define SafeMDP object
-        x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise)
+        x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise, L)
 
         # Insert samples from (s, a) in S_hat0
         tmp = np.arange(x.ind.shape[0])
@@ -655,7 +680,7 @@ if mars:
 
 else:
     # Define world
-    world_shape = (30, 30)
+    world_shape = (2, 2)
     step_size = (0.5, 0.5)
 
     # Define GP
@@ -680,6 +705,9 @@ else:
     # Safety threhsold
     h = -0.9
 
+    # Lipschitz
+    L = 0
+
     # Scaling factor for confidence interval
     beta = 2
 
@@ -696,7 +724,7 @@ else:
     S_hat0 = np.nan
 
     # Define SafeMDP object
-    x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise)
+    x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise, L)
 
    # Insert samples from (s, a) in S_hat0
     tmp = np.arange(x.ind.shape[0])
