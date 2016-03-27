@@ -263,13 +263,13 @@ class SafeMDP(object):
         self.ret[:] = recover_to_ret
         return changed
 
-    def compute_expanders(self):  # NEED TO CHECK IF WE ALWAYS NEED S_HAT
+    def compute_expanders(self):
         self.G[:] = False
         states_ind = np.arange(self.S_hat.shape[0])
         for action in range(1, self.S_hat.shape[1]):
 
             # Extract distance from safe points to non safe ones
-            dist_tmp = self.d[np.ix_(self.S_hat[:, action], np.logical_not(self.S_hat[:, action]))]
+            dist_tmp = self.d[np.ix_(self.S_hat[:, action], np.logical_not(self.S[:, action]))]
 
             # Find states for which (s, action) is in S_hat
             non_zeros = states_ind[self.S_hat[:, action]]
@@ -353,18 +353,29 @@ class SafeMDP(object):
 
     def target_sample(self):
         """
-        Computes the next target (s, a) to sample (highest uncertainty within S_hat)
+        Computes the next target (s, a) to sample (highest uncertainty within G or S_hat)
         """
-        # Extract elements in S_hat
-        non_z = np.nonzero(self.S_hat)
+        if np.any(self.G):
+            # Extract elements in G
+            non_z = np.nonzero(self.G)
 
-        # Compute uncertainty
-        w = self.u[self.S_hat] - self.l[self.S_hat]
+            # Compute uncertainty
+            w = self.u[self.G] - self.l[self.G]
 
-        # Find state with max uncertainty
-        ind = np.argmax(w)
+            # Find   max uncertainty
+            ind = np.argmax(w)
+
+        else:
+            # Extract elements in S_hat
+            non_z = np.nonzero(self.S_hat)
+
+            # Compute uncertainty
+            w = self.u[self.S_hat] - self.l[self.S_hat]
+
+            # Find   max uncertainty
+            ind = np.argmax(w)
+
         state = non_z[0][ind]
-
         # Store (s, a) pair
         self.target_state[:] = vec2mat(state, self.world_shape)
         self.target_action = non_z[1][ind]
@@ -579,12 +590,12 @@ def draw_GP(kernel, world_shape, step_size):
 # test
 #if __name__ == "main":
 
-mars = False
+mars = True
 
 if mars:
 
     # Extract and plot Mars data
-    world_shape = (50, 100)
+    world_shape = (60, 60)
     step_size = (1., 1.)
     gdal.UseExceptions()
     ds = gdal.Open("/Users/matteoturchetta/PycharmProjects/SafeMDP/src/mars.tif")
@@ -611,7 +622,7 @@ if mars:
     h = -np.tan(np.pi/6.)
 
     # Lipschitz
-    L = 0
+    L = 1.
 
     # Scaling factor for confidence interval
     beta = 2
@@ -664,6 +675,7 @@ if mars:
             x.add_obs(x.target_state, x.target_action)
             # print (x.target_state, x.target_action)
             # print(i)
+            print (np.any(x.G))
         print (str(time.time() - t) + "seconds elapsed")
 
         # Plot safe sets
