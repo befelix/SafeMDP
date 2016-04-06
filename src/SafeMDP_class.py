@@ -42,6 +42,9 @@ class SafeMDP(object):
         else:
             self.S_hat = S_hat0
 
+        # Set used to efficiently build the graph for the shortest path problem
+        self.S_hat_old = np.zeros_like(self.S_hat, dtype=bool)
+
         # Target
         self.target_state = np.empty(2, dtype=int)
         self.target_action = np.empty(1, dtype=int)
@@ -58,7 +61,9 @@ class SafeMDP(object):
         self.true_S_hat = self.compute_true_S_hat()
 
         # Graph for shortest path
-        self.graph = nx.DiGraph()
+        # self.graph = nx.DiGraph()
+        self.graph_lazy = nx.DiGraph()
+        self.compute_graph_lazy()
 
     def grid(self):
         """
@@ -304,6 +309,7 @@ class SafeMDP(object):
             pass
         while self.r_ret():
             pass
+        self.S_hat_old[:] = self.S_hat
         self.S_hat[:] = np.logical_or(self.S_hat, np.logical_and(self.reach, self.ret))
 
         self.compute_expanders()
@@ -562,13 +568,32 @@ class SafeMDP(object):
             raise ValueError("Unknown action")
         return next_states_vec_ind
 
-    def compute_graph(self):
+    # def compute_graph(self):
+    #     states_vec_ind = np.arange(self.S_hat.shape[0])
+    #
+    #     for action in range(1, self.S_hat.shape[1]):
+    #
+    #         # States where is safe to apply action = action
+    #         safe_states_vec_ind = states_vec_ind[self.S_hat[:, action]]
+    #
+    #         # Resulting states when applying action at safe_states_vec_ind
+    #         next_states_vec_ind = self.dynamics_vec_ind(safe_states_vec_ind, action)
+    #
+    #         # Resulting states that are also safe
+    #         condition = self.S_hat[next_states_vec_ind, 0]
+    #
+    #         # Add edges to graph
+    #         start = self.ind[safe_states_vec_ind[condition], :]
+    #         end = self.ind[next_states_vec_ind[condition], :]
+    #         self.graph.add_edges_from(zip(map(tuple, start), map(tuple, end)))
+
+    def compute_graph_lazy(self):
         states_vec_ind = np.arange(self.S_hat.shape[0])
 
         for action in range(1, self.S_hat.shape[1]):
 
             # States where is safe to apply action = action
-            safe_states_vec_ind = states_vec_ind[self.S_hat[:, action]]
+            safe_states_vec_ind = states_vec_ind[np.logical_and(self.S_hat[:, action], np.logical_not(self.S_hat_old[:, action]))]
 
             # Resulting states when applying action at safe_states_vec_ind
             next_states_vec_ind = self.dynamics_vec_ind(safe_states_vec_ind, action)
@@ -579,7 +604,7 @@ class SafeMDP(object):
             # Add edges to graph
             start = self.ind[safe_states_vec_ind[condition], :]
             end = self.ind[next_states_vec_ind[condition], :]
-            self.graph.add_edges_from(zip(map(tuple, start), map(tuple, end)))
+            self.graph_lazy.add_edges_from(zip(map(tuple, start), map(tuple, end)))
 
 
 def vec2mat(vec_ind, world_shape):
@@ -763,7 +788,7 @@ if mars:
 
 else:
     # Define world
-    world_shape = (10, 10)
+    world_shape = (40, 40)
     step_size = (0.5, 0.5)
 
     # Define GP
@@ -822,11 +847,11 @@ else:
     x.gp.set_XY(x.gp.X[n_samples:, :], x.gp.Y[n_samples:])
 
     t = time.time()
-    for i in range(150):
+    for i in range(100):
         x.update_sets()
         x.target_sample()
         x.add_obs(x.target_state, x.target_action)
-        x.compute_graph()
+        x.compute_graph_lazy()
         # plt.figure(1)
         # plt.clf()
         # nx.draw_networkx(x.graph)
