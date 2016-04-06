@@ -5,6 +5,7 @@ import time
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import cdist
 from osgeo import gdal
+import networkx as nx
 
 
 class SafeMDP(object):
@@ -55,6 +56,9 @@ class SafeMDP(object):
         # True sets
         self.true_S = self.compute_true_safe_set()
         self.true_S_hat = self.compute_true_S_hat()
+
+        # Graph for shortest path
+        self.graph = nx.DiGraph()
 
     def grid(self):
         """
@@ -516,6 +520,67 @@ class SafeMDP(object):
         S_hat[s, 1:] = safe
         return S_hat
 
+    def dynamics_vec_ind(self, states_vec_ind, action):
+        """
+        Dynamic evolution of the system defined in vector representation of the states
+
+        Parameters
+        ----------
+
+        states_vec_ind: np.array
+                        Contains all the vector indexes of the states we want to compute the dynamic evolution for
+        action: int
+                action performed by the agent
+
+        Returns
+        -------
+
+        next_states_vec_ind: np.array
+                             vector index of states resulting from applying the
+                              action given as input to the array of starting points
+                              given as input
+        """
+        n, m = self.world_shape
+        next_states_vec_ind = np.copy(states_vec_ind)
+        if action == 1:
+            next_states_vec_ind[:] = states_vec_ind + 1
+            condition = np.mod(next_states_vec_ind, m) == 0
+            next_states_vec_ind[condition] = states_vec_ind[condition]
+        elif action == 2:
+            next_states_vec_ind[:] = states_vec_ind + m
+            condition = next_states_vec_ind >= m*n
+            next_states_vec_ind[condition] = states_vec_ind[condition]
+        elif action == 3:
+            next_states_vec_ind[:] = states_vec_ind - 1
+            condition = np.mod(states_vec_ind, m) == 0
+            next_states_vec_ind[condition] = states_vec_ind[condition]
+        elif action == 4:
+            next_states_vec_ind[:] = states_vec_ind - m
+            condition = next_states_vec_ind <= -1
+            next_states_vec_ind[condition] = states_vec_ind[condition]
+        else:
+            raise ValueError("Unknown action")
+        return next_states_vec_ind
+
+    def compute_graph(self):
+        states_vec_ind = np.arange(self.S_hat.shape[0])
+
+        for action in range(1, self.S_hat.shape[1]):
+
+            # States where is safe to apply action = action
+            safe_states_vec_ind = states_vec_ind[self.S_hat[:, action]]
+
+            # Resulting states when applying action at safe_states_vec_ind
+            next_states_vec_ind = self.dynamics_vec_ind(safe_states_vec_ind, action)
+
+            # Resulting states that are also safe
+            condition = self.S_hat[next_states_vec_ind, 0]
+
+            # Add edges to graph
+            start = self.ind[safe_states_vec_ind[condition], :]
+            end = self.ind[next_states_vec_ind[condition], :]
+            self.graph.add_edges_from(zip(map(tuple, start), map(tuple, end)))
+
 
 def vec2mat(vec_ind, world_shape):
     """
@@ -587,10 +652,16 @@ def draw_GP(kernel, world_shape, step_size):
     sample = np.random.multivariate_normal(np.zeros(coord.shape[0]), cov)
     return sample, coord
 
+
+def manhattan_dist(a, b):
+    (x1, y1) = a
+    (x2, y2) = b
+    return np.fabs(x1 - x2) + np.fabs(y1 - y2)
+
 # test
 #if __name__ == "main":
 
-mars = True
+mars = False
 
 if mars:
 
@@ -692,7 +763,7 @@ if mars:
 
 else:
     # Define world
-    world_shape = (2, 2)
+    world_shape = (10, 10)
     step_size = (0.5, 0.5)
 
     # Define GP
@@ -755,6 +826,11 @@ else:
         x.update_sets()
         x.target_sample()
         x.add_obs(x.target_state, x.target_action)
+        x.compute_graph()
+        # plt.figure(1)
+        # plt.clf()
+        # nx.draw_networkx(x.graph)
+        # plt.show()
         print("Iteration:   " + str(i))
 
     print (str(time.time() - t) + "seconds elapsed")
