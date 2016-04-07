@@ -69,11 +69,10 @@ class SafeMDP(object):
 
         Returns
         -------
-
         states_ind: np.array
-                    (n*m) x 2 array containing the indices of the states
+            (n*m) x 2 array containing the indices of the states
         states_coord: np.array
-                      (n*m) x 2 array containing the coordinates of the states
+            (n*m) x 2 array containing the coordinates of the states
         """
         # Create grid of indices
         n, m = self.world_shape
@@ -93,9 +92,9 @@ class SafeMDP(object):
         Returns
         -------
         l: np.array
-           lower bound of the safety feature (mean - beta*std)
+            lower bound of the safety feature (mean - beta*std)
         u: np.array
-           upper bound of the safety feature (mean - beta*std)
+            upper bound of the safety feature (mean - beta*std)
         """
         # Predict safety feature
         mu, s = self.gp.predict_jacobian(self.coord, full_cov=False)
@@ -133,16 +132,18 @@ class SafeMDP(object):
         Parameters
         ----------
         bool_mat: np.array
-                  n_states x 1 array of booleans indicating which initial states satisfy a given property
+            n_states x 1 array of booleans indicating which initial states
+            satisfy a given property
         action: int
-                action we want to compute the dynamics with
+            action we want to compute the dynamics with
 
         Returns
         -------
         return: np.array
-                n_states x 1 array of booleans. If the entry in boolean_mat in input is equal to
-                true for a state s, the output will have then entry corresponding to f(s, action)
-                set to true (f represents the dynamics of the system)
+            n_states x 1 array of booleans. If the entry in boolean_mat in
+            input is equal to true for a state s, the output will have then
+            entry corresponding to f(s, action) set to true (f represents the
+            dynamics of the system)
         """
         start = bool_mat.reshape(self.world_shape).copy()
         end = bool_mat.reshape(self.world_shape).copy()
@@ -180,7 +181,7 @@ class SafeMDP(object):
         Returns
         -------
         changed: bool
-                 Indicates whether self.reach and the newly computed set are different or not
+            Indicates whether self.reach and the newly computed set are different or not
         """
 
         # Initialize
@@ -252,7 +253,7 @@ class SafeMDP(object):
         Returns
         -------
         changed: bool
-                 Indicates whether self.ret and the newly computed set are different or not
+            Indicates whether self.ret and the newly computed set are different or not
         """
 
         # Initialize
@@ -318,9 +319,8 @@ class SafeMDP(object):
 
         Parameters
         ----------
-
         S: np.array(dtype=bool)
-           n_states x (n_actions + 1) array of boolean values that indicates the safe set
+            n_states x (n_actions + 1) array of boolean values that indicates the safe set
 
         """
         for action in range(1):
@@ -337,10 +337,10 @@ class SafeMDP(object):
 
         Parameters
         ----------
-        state: np.array
-               i,j indexing of the state of the target state action pair
+        state_mat_ind: np.array
+            i,j indexing of the state of the target state action pair
         action: int
-                action of the target state action pair
+            action of the target state action pair
         """
 
         # Observation of previous state
@@ -361,7 +361,7 @@ class SafeMDP(object):
 
     def target_sample(self):
         """
-        Computes the next target (s, a) to sample (highest uncertainty within G or S_hat)
+        Compute the next target (s, a) to sample (highest uncertainty within G or S_hat)
         """
         if np.any(self.G):
             # Extract elements in G
@@ -397,16 +397,17 @@ class SafeMDP(object):
         Parameters
         ----------
         states: np.array
-                Two dimensional array. Each row contains the (x,y) coordinates of
-                 the starting points we want to compute the evolution for
+            Two dimensional array. Each row contains the (x,y) coordinates of
+            the starting points we want to compute the evolution for
         action: int
-                Control action (1 = up, 2 = right, 3 = down, 4 = left)
+            Control action (1 = up, 2 = right, 3 = down, 4 = left)
 
         Returns
         -------
         next_states: np.array
-                     Two dimensional array. Each row contains the (x,y) coordinates
-                      of the state that results from applying action to the corresponding row of the input states
+            Two dimensional array. Each row contains the (x,y) coordinates
+            of the state that results from applying action to the corresponding
+            row of the input states
         """
         n, m = self.world_shape
         if states.ndim == 1:
@@ -435,7 +436,7 @@ class SafeMDP(object):
         Returns
         -------
         true_safe: np.array
-                   Boolean array n_states x (n_actions + 1).
+            Boolean array n_states x (n_actions + 1).
         """
 
         # Initialize
@@ -463,9 +464,9 @@ class SafeMDP(object):
         Computes the safe set with reachability and recovery properties given a perfect knowledge of the map
 
         Returns
-        ------
+        -------
         true_safe: np.array
-                   Boolean array n_states x (n_actions + 1).
+            Boolean array n_states x (n_actions + 1).
         """
         # Initialize
         true_S_hat = np.zeros_like(self.S, dtype=bool)
@@ -496,7 +497,7 @@ class SafeMDP(object):
         Returns
         ------
         S_hat: np.array
-               Boolean array n_states x (n_actions + 1).
+            Boolean array n_states x (n_actions + 1).
         """
         # Initialize
         safe = np.zeros(self.S.shape[1] - 1, dtype=bool)
@@ -530,19 +531,17 @@ class SafeMDP(object):
 
         Parameters
         ----------
-
         states_vec_ind: np.array
-                        Contains all the vector indexes of the states we want to compute the dynamic evolution for
+            Contains all the vector indexes of the states we want to compute
+            the dynamic evolution for
         action: int
-                action performed by the agent
+            action performed by the agent
 
         Returns
         -------
-
         next_states_vec_ind: np.array
-                             vector index of states resulting from applying the
-                              action given as input to the array of starting points
-                              given as input
+            vector index of states resulting from applying the action given
+            as input to the array of starting points given as input
         """
         n, m = self.world_shape
         next_states_vec_ind = np.copy(states_vec_ind)
@@ -612,14 +611,14 @@ def vec2mat(vec_ind, world_shape):
     Parameters
     ----------
     vec_ind: np.array
-             Each element contains the vector indexing of a state we want to do the convesrion for
+        Each element contains the vector indexing of a state we want to do the convesrion for
     world_shape: shape
-                 Tuple that contains the shape of the grid world n x m
+        Tuple that contains the shape of the grid world n x m
 
     Returns
     -------
     return: np.array
-            ith row contains the (x,y) coordinates of the ith element of the input vector vec_ind
+        ith row contains the (x,y) coordinates of the ith element of the input vector vec_ind
     """
     n, m = world_shape
     row = np.floor(vec_ind/m)
@@ -634,15 +633,15 @@ def mat2vec(states_mat_ind, world_shape):
     Parameters
     ----------
     states_mat_ind: np.array
-                    Each row contains the (x,y) coordinates of each state we want to do the conversion for
+        Each row contains the (x,y) coordinates of each state we want to do the conversion for
     world_shape: shape
-                 Tuple that contains the shape of the grid world n x m
+        Tuple that contains the shape of the grid world n x m
 
     Returns
     -------
     vec_ind: np.array
-             Each element contains the vector indexing of the point in the
-             corresponding row of the input states_mat_ind
+        Each element contains the vector indexing of the point in the
+        corresponding row of the input states_mat_ind
     """
     if states_mat_ind.ndim == 1:
         states_mat_ind = states_mat_ind.reshape(1, 2)
@@ -658,11 +657,11 @@ def draw_GP(kernel, world_shape, step_size):
     Parameters
     ----------
     kernel: GPy kernel
-            Defines the GP we draw a sample from
+        Defines the GP we draw a sample from
     world_shape: tuple
-                 Shape of the grid we use for sampling
+        Shape of the grid we use for sampling
     step_size: tuple
-               Step size along any axis to find linearly spaced points
+        Step size along any axis to find linearly spaced points
     """
     # Compute linearly spaced grid
     n, m = world_shape
