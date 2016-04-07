@@ -329,7 +329,7 @@ class SafeMDP(object):
             plt.title("action " + str(action))
         plt.show()
 
-    def add_obs(self, state_mat_ind, action):
+    def add_observation(self, state_mat_ind, action):
         """
         Adds an observation of the given state-action pair. Observing the pair
         (s, a) means to add an observation of the altitude at s and an
@@ -650,7 +650,7 @@ def mat2vec(states_mat_ind, world_shape):
     return vec_ind.astype(int)
 
 
-def draw_GP(kernel, world_shape, step_size):
+def draw_gp_sample(kernel, world_shape, step_size):
     """
     Draws a sample from a Gaussian process distribution over a user specified grid
 
@@ -757,7 +757,7 @@ if __name__ == "__main__":
             tmp = np.arange(1, x.S.shape[1])
             actions = tmp[x.S_hat[s_vec_ind, 1:].squeeze()]
             for i in range(1):
-                x.add_obs(state, np.random.choice(actions))
+                x.add_observation(state, np.random.choice(actions))
 
             # Remove samples used for GP initialization and possibly hyperparameters optimization
             x.gp.set_XY(x.gp.X[n_samples:, :], x.gp.Y[n_samples:])
@@ -766,7 +766,7 @@ if __name__ == "__main__":
             for i in range(50):
                 x.update_sets()
                 x.target_sample()
-                x.add_obs(x.target_state, x.target_action)
+                x.add_observation(x.target_state, x.target_action)
                 # print (x.target_state, x.target_action)
                 # print(i)
                 print (np.any(x.G))
@@ -796,7 +796,7 @@ if __name__ == "__main__":
         lik.constrain_bounded(1e-6, 10000.)
 
         # Sample and plot world
-        altitudes, coord = draw_GP(kernel, world_shape, step_size)
+        altitudes, coord = draw_gp_sample(kernel, world_shape, step_size)
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
         ax.plot_trisurf(coord[:, 0], coord[:, 1], altitudes)
@@ -839,7 +839,7 @@ if __name__ == "__main__":
         tmp = np.arange(1, x.S.shape[1])
         actions = tmp[x.S_hat[s_vec_ind, 1:].squeeze()]
         for i in range(1):
-            x.add_obs(state, np.random.choice(actions))
+            x.add_observation(state, np.random.choice(actions))
 
         # Remove samples used for GP initialization
         x.gp.set_XY(x.gp.X[n_samples:, :], x.gp.Y[n_samples:])
@@ -848,7 +848,7 @@ if __name__ == "__main__":
         for i in range(100):
             x.update_sets()
             x.target_sample()
-            x.add_obs(x.target_state, x.target_action)
+            x.add_observation(x.target_state, x.target_action)
             x.compute_graph_lazy()
             # plt.figure(1)
             # plt.clf()
