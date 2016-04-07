@@ -392,30 +392,30 @@ class SafeMDP(object):
         """
         if np.any(self.G):
             # Extract elements in G
-            non_z = np.nonzero(self.G)
+            expander_id = np.nonzero(self.G)
 
             # Compute uncertainty
             w = self.u[self.G] - self.l[self.G]
 
             # Find   max uncertainty
-            ind = np.argmax(w)
+            max_id = np.argmax(w)
 
         else:
             raise RuntimeWarning('No expanders, using most uncertain element'
                                  'in S_hat instead.')
             # Extract elements in S_hat
-            non_z = np.nonzero(self.S_hat)
+            expander_id = np.nonzero(self.S_hat)
 
             # Compute uncertainty
             w = self.u[self.S_hat] - self.l[self.S_hat]
 
             # Find   max uncertainty
-            ind = np.argmax(w)
+            max_id = np.argmax(w)
 
-        state = non_z[0][ind]
+        state = expander_id[0][max_id]
         # Store (s, a) pair
         self.target_state[:] = vec2mat(state, self.world_shape)
-        self.target_action = non_z[1][ind]
+        self.target_action = expander_id[1][max_id]
 
     def dynamics(self, states, action):
         """
