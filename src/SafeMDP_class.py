@@ -321,16 +321,20 @@ class SafeMDP(object):
         S_grid[3, :, 0] = False
         S_grid[4, 0, :] = False
 
+        # Reachable states and return states start from S_hat
         self.reach[:] = self.S_hat
         self.ret[:] = self.S_hat
 
+        # Iteratively update sets
         while self.update_reachable_set():
             pass
         while self.update_return_set():
             pass
+
+        #
         self.S_hat_old[:] = self.S_hat
-        self.S_hat[:] = np.logical_or(self.S_hat,
-                                      np.logical_and(self.reach, self.ret))
+        # TODO: We could just set this to equal here? Would anything break?
+        self.S_hat |= np.logical_and(self.reach, self.ret)
 
         self.compute_expanders()
 
