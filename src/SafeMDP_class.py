@@ -263,18 +263,24 @@ class SafeMDP(object):
         # Initialize
         recover_to_ret = np.zeros(self.S.shape, dtype=bool)
 
-        # From s in S to (s,a) in ret
+        # TODO: Which of these operations are actually necessary?
+        # A state is part of the return set if any of the associated
+        # actions are in ret. (s in S to (s, a))
         recover_to_ret[self.S[:, 0], 0] = np.any(
             np.logical_and(self.S[self.S[:, 0], 1:],
-                           self.ret[self.S[:, 0], 1:]), axis=1)
+                           self.ret[self.S[:, 0], 1:]),
+            xis=1)
 
         # From (s,a) in S to s in ret
         for action in range(1, self.S.shape[1]):
-            tmp = self.boolean_inverse_dynamics(self.ret[:, 0], action)
-            recover_to_ret[:, action] = np.logical_and(tmp, self.S[:, action])
-        recover_to_ret = np.logical_or(recover_to_ret, self.ret)
-        changed = not np.all(self.ret == recover_to_ret)
-        self.ret[:] = recover_to_ret
+            recover_to_ret[:, action] = np.logical_and(
+                self.S[:, action],
+                self.boolean_inverse_dynamics(self.ret[:, 0], action))
+
+        recover_to_ret |= self.ret
+
+        changed = np.any(self.ret != recover_to_ret)
+        self.ret = recover_to_ret
         return changed
 
     def compute_expanders(self):
@@ -736,6 +742,9 @@ if __name__ == "__main__":
         world_shape = (60, 60)
         step_size = (1., 1.)
         gdal.UseExceptions()
+        import os
+        if not os.path.exists('./mars.tif'):
+            #download ...
         ds = gdal.Open(
             "/Users/matteoturchetta/PycharmProjects/SafeMDP/src/mars.tif")
         band = ds.GetRasterBand(1)
