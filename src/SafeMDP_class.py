@@ -10,6 +10,37 @@ import networkx as nx
 
 class SafeMDP(object):
     def __init__(self, gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise, L):
+        """
+        Parameters
+        ----------
+
+        gp: GPy.core.GP
+            Gaussian process that expresses our current belief over the safety feature
+        world_shape: shape
+                     Tuple that contains the shape of the grid world n x m
+        step_size: tuple of floats
+                   Tuple that contains the step sizes along each direction to create a linearly spaced grid
+        beta: float
+              Scaling factor to determine the amplitude of the confidence intervals
+        altitudes: np.array
+                   It contains the flattened n x m matrix where the altitudes of all the points in the map are stored
+        h: float
+           Safety threshold
+        S0: np.array
+            n_states x (n_actions + 1) array of booleans that indicates which
+            states (first column) and which state-action pairs belong to the
+            initial safe seed. Notice that, by convention we initialize all
+            the states to be safe
+        S_hat0: np.array or nan
+            n_states x (n_actions + 1) array of booleans that indicates which
+            states (first column) and which state-action pairs belong to the
+            initial safe seed and satisfy recovery and reachability properties.
+            If it is nan, such a boolean matrix is computed during initialization
+        noise: float
+               Standard deviation of the measurement noise
+        L: float
+           Lipschitz constant to compute expanders
+        """
 
         self.gp = gp
     #    self.kernel = gp.kern
@@ -686,7 +717,7 @@ def manhattan_dist(a, b):
 # test
 #if __name__ == "main":
 
-mars = False
+mars = True
 
 if mars:
 
@@ -744,7 +775,7 @@ if mars:
     for index, length in enumerate(lengthScale):
 
         # Define and initialize GP
-        noise = 0.04
+        noise = 0.05
         kernel = GPy.kern.RBF(input_dim=2, lengthscale=length, variance=121.)
         lik = GPy.likelihoods.Gaussian(variance=noise**2)
         gp = GPy.core.GP(X, Y, kernel, lik)
