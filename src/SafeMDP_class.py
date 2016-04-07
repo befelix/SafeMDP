@@ -168,7 +168,7 @@ class SafeMDP(object):
             raise ValueError("Unknown action")
         return np.reshape(end, (np.prod(self.world_shape)))
 
-    def r_reach(self):
+    def update_reachable_set(self):
         """
         computes the union of the points in self.reach and the points that are
         reachable in one time step from self.reach and that are above safety
@@ -246,7 +246,7 @@ class SafeMDP(object):
             raise ValueError("Unknown action")
         return np.reshape(start, (np.prod(self.world_shape)))
 
-    def r_ret(self):
+    def update_return_set(self):
         """
         computes the union of the points in self.ret and the points from which
         it is possible to recover to self.ret and that are above safety
@@ -317,9 +317,9 @@ class SafeMDP(object):
         self.reach[:] = self.S_hat
         self.ret[:] = self.S_hat
 
-        while self.r_reach():
+        while self.update_reachable_set():
             pass
-        while self.r_ret():
+        while self.update_return_set():
             pass
         self.S_hat_old[:] = self.S_hat
         self.S_hat[:] = np.logical_or(self.S_hat,
@@ -495,14 +495,14 @@ class SafeMDP(object):
         self.reach[:] = self.S_hat
         self.ret[:] = self.S_hat
 
-        # Substitute S with true S for r_reach and r_ret methods
+        # Substitute S with true S for update_reachable_set and update_return_set methods
         tmp = np.copy(self.S)
         self.S[:] = self.true_S
 
         # Reachable and recovery set
-        while self.r_reach():
+        while self.update_reachable_set():
             pass
-        while self.r_ret():
+        while self.update_return_set():
             pass
 
         # Points are either in S_hat or in the intersection of reachable and
