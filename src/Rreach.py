@@ -150,7 +150,7 @@ def plot_S(S, world_shape):
     plt.show()
 
 
-if __name__ == "main":
+if __name__ == "__main__":
     # Test the code
     n = 4
     world_shape = (6, 4)
