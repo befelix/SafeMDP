@@ -198,7 +198,7 @@ class SafeMDP(object):
         reachable_from_reach[:, 0] &= self.S[:, 0]
 
         changed = np.any(self.reach != reachable_from_reach)
-        self.reach[:] = reachable_from_reach
+        self.reach = reachable_from_reach
         return changed
 
     def boolean_inverse_dynamics(self, bool_mat, action):
