@@ -6,18 +6,19 @@ import matplotlib.pyplot as plt
 def dynamics(states, action, world_shape):
     """
     Dynamics of the system
+
     The function computes the one time step dynamic evolution of the system
     for any number of initial state and for one given action
 
     Parameters
     ----------
     states: np.array
-            Two dimensional array. Each row contains the (x,y) coordinates of
-             the starting points we want to compute the evolution for
+        wo dimensional array. Each row contains the (x,y) coordinates of the
+        starting points we want to compute the evolution for
     action: int
-            Control action (1 = up, 2 = right, 3 = down, 4 = left)
-    world_shape: shape
-                 Tuple that contains the shape of the grid world n x m
+        Control action (1 = up, 2 = right, 3 = down, 4 = left)
+    world_shape: tuple
+        Tuple that contains the shape of the grid world n x m
 
     Returns
     -------
@@ -109,7 +110,6 @@ def r_reach(S_hat, S, world_shape):
 
     Returns
     -------
-
     return: np.array(dtype=bool)
         n_states x n_action array. Union of S_hat and the set of points
         reachable from S_hat that is above safety threshold
