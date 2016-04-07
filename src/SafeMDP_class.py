@@ -40,6 +40,7 @@ class SafeMDP(object):
             self.S_hat = self.compute_S_hat0()
         else:
             self.S_hat = S_hat0
+        self.S_hat0 = self.S_hat.copy()
 
         # Set used to efficiently build the graph for the shortest path problem
         self.S_hat_old = np.zeros_like(self.S_hat, dtype=bool)
@@ -261,23 +262,19 @@ class SafeMDP(object):
         """
 
         # Initialize
-        recover_to_ret = np.zeros(self.S.shape, dtype=bool)
+        recover_to_ret = self.ret.copy()
 
-        # TODO: Which of these operations are actually necessary?
         # A state is part of the return set if any of the associated
         # actions are in ret. (s in S to (s, a))
-        recover_to_ret[self.S[:, 0], 0] = np.any(
-            np.logical_and(self.S[self.S[:, 0], 1:],
-                           self.ret[self.S[:, 0], 1:]),
-            axis=1)
+        safe_states = self.S[:, 0]
+        recover_to_ret[safe_states, 0] |= np.any(self.ret[safe_states, 1:],
+                                                 axis=1)
 
         # From (s,a) in S to s in ret
         for action in range(1, self.S.shape[1]):
-            recover_to_ret[:, action] = np.logical_and(
+            recover_to_ret[:, action] |= np.logical_and(
                 self.S[:, action],
                 self.boolean_inverse_dynamics(self.ret[:, 0], action))
-
-        recover_to_ret |= self.ret
 
         changed = np.any(self.ret != recover_to_ret)
         self.ret = recover_to_ret
@@ -318,9 +315,10 @@ class SafeMDP(object):
         S_grid[3, :, 0] = False
         S_grid[4, 0, :] = False
 
-        # Reachable states and return states start from S_hat
-        self.reach[:] = self.S_hat
-        self.ret[:] = self.S_hat
+        # Reachable states and return states start from original S_hat
+        # This is needed because we don't intersect confidence intervals here.
+        self.reach[:] = self.S_hat0
+        self.ret[:] = self.S_hat0
 
         # Iteratively update sets
         while self.update_reachable_set():
@@ -328,10 +326,9 @@ class SafeMDP(object):
         while self.update_return_set():
             pass
 
-        #
+        # Update safe set
         self.S_hat_old[:] = self.S_hat
-        # TODO: We could just set this to equal here? Would anything break?
-        self.S_hat |= np.logical_and(self.reach, self.ret)
+        self.S_hat = np.logical_and(self.reach, self.ret)
 
         self.compute_expanders()
 
