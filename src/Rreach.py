@@ -65,7 +65,7 @@ def mat2vec(states_mat_ind, world_shape):
         corresponding row of the input states_mat_ind
     """
     m = world_shape[1]
-    vec_ind = states_mat_ind[:, 1] + states_mat_ind[:, 0]*m
+    vec_ind = states_mat_ind[:, 1] + states_mat_ind[:, 0] * m
     return vec_ind.astype(int)
 
 
@@ -146,7 +146,7 @@ def plot_S(S, world_shape):
     -------
     none
     """
-    for action in range(1): # np.arange(S.shape[1]):
+    for action in range(1):  # np.arange(S.shape[1]):
         plt.figure(action)
         plt.imshow(np.reshape(S[:, action], world_shape),
                    origin="lower", interpolation="nearest")
@@ -177,5 +177,5 @@ if __name__ == "__main__":
         plot_S(S_hat, world_shape)
         print(S_hat)
         print(i)
-        #input("Press something")
+        # input("Press something")
     plt.show()

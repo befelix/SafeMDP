@@ -7,11 +7,12 @@ import networkx as nx
 
 
 class SafeMDP(object):
-    def __init__(self, gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise, L):
+    def __init__(self, gp, world_shape, step_size, beta, altitudes, h, S0,
+                 S_hat0, noise, L):
 
         self.gp = gp
-    #    self.kernel = gp.kern
-    #    self.likelihood = gp.likelihood
+        #    self.kernel = gp.kern
+        #    self.likelihood = gp.likelihood
         self.altitudes = altitudes
         self.world_shape = world_shape
         self.step_size = step_size
@@ -80,14 +81,16 @@ class SafeMDP(object):
         states_ind = np.vstack((xx.flatten(), yy.flatten())).T
         # Grid of coordinates (used to compute Gram matrix)
         step1, step2 = self.step_size
-        xx, yy = np.meshgrid(np.linspace(0, (n-1) * step1, n), np.linspace(0, (m-1)*step2, m), indexing="ij")
+        xx, yy = np.meshgrid(np.linspace(0, (n - 1) * step1, n),
+                             np.linspace(0, (m - 1) * step2, m),
+                             indexing="ij")
         states_coord = np.vstack((xx.flatten(), yy.flatten())).T
         return states_ind, states_coord
 
     def update_confidence_interval(self):
         """
-        Updates the lower and the upper bound of the confidence intervals using the
-        posterior distribution over the gradients of the altitudes
+        Updates the lower and the upper bound of the confidence intervals
+        using then posterior distribution over the gradients of the altitudes
 
         Returns
         -------
@@ -118,8 +121,8 @@ class SafeMDP(object):
         s_abstract[:, 2] = s[:, 0]
         s_abstract[:, 4] = s[:, 0]
         # Lower and upper bound of confidence interval
-        self.l = mu_abstract - self.beta*np.sqrt(s_abstract)
-        self.u = mu_abstract + self.beta*np.sqrt(s_abstract)
+        self.l = mu_abstract - self.beta * np.sqrt(s_abstract)
+        self.u = mu_abstract + self.beta * np.sqrt(s_abstract)
 
     def boolean_dynamics(self, bool_mat, action):
         """
@@ -127,7 +130,8 @@ class SafeMDP(object):
         values according to the dynamics of the system using the action
         provided as input. For example, if true entries of bool_mat indicate
         the safe states, boolean dynamics returns an array whose true entries
-        indicate states that can be reached from the safe set with action = action
+        indicate states that can be reached from the safe set with action =
+        action
 
         Parameters
         ----------
@@ -181,20 +185,24 @@ class SafeMDP(object):
         Returns
         -------
         changed: bool
-            Indicates whether self.reach and the newly computed set are different or not
+            Indicates whether self.reach and the newly computed set are
+            different or not
         """
 
         # Initialize
         reachable_from_reach = np.zeros(self.S.shape, dtype=bool)
 
         # From s to (s,a) pair
-        reachable_from_reach[self.reach[:, 0], 1:] = self.S[self.reach[:, 0], 1:]
+        reachable_from_reach[self.reach[:, 0], 1:] =\
+            self.S[self.reach[:, 0], 1:]
 
         # From (s,a) to s
         for action in range(1, self.S.shape[1]):
             tmp = self.boolean_dynamics(self.reach[:, action], action)
-            reachable_from_reach[:, 0] = np.logical_or(reachable_from_reach[:, 0], tmp)
-        reachable_from_reach[:, 0] = np.logical_and(reachable_from_reach[:, 0], self.S[:, 0])
+            reachable_from_reach[:, 0] = np.logical_or(
+                reachable_from_reach[:, 0], tmp)
+        reachable_from_reach[:, 0] = np.logical_and(reachable_from_reach[:, 0],
+                                                    self.S[:, 0])
         reachable_from_reach = np.logical_or(reachable_from_reach, self.reach)
         changed = not np.all(self.reach == reachable_from_reach)
         self.reach[:] = reachable_from_reach
@@ -203,23 +211,25 @@ class SafeMDP(object):
     def boolean_inverse_dynamics(self, bool_mat, action):
         """
         Similar to boolean dynamics. The difference is that here the
-        boolean_mat input indicates the arrival states that satisfy a given property
-        and the function returns the initial states from which the arrival state
-        can be reached applying the action input.
+        boolean_mat input indicates the arrival states that satisfy a given
+        property and the function returns the initial states from which the
+        arrival state can be reached applying the action input.
 
         Parameters
         ----------
         bool_mat: np.array
-                  n_states x 1 array of booleans indicating which arrival states satisfy a given property
+                  n_states x 1 array of booleans indicating which arrival
+                  states satisfy a given property
         action: int
                 action we want to compute the inverse dynamics with
 
         Returns
         -------
         return: np.array
-                n_states x 1 array of booleans. If the entry in the output is set to true
-                for a state s, the input boolean_mat has the entry corresponding to f(s, action)
-                equal to true (f represents the dynamics of the system)
+                n_states x 1 array of booleans. If the entry in the output
+                is set to true for a state s, the input boolean_mat has the
+                entry corresponding to f(s, action) equal to true
+                (f represents the dynamics of the system)
         """
         start = bool_mat.reshape(self.world_shape).copy()
         end = bool_mat.reshape(self.world_shape).copy()
@@ -253,14 +263,17 @@ class SafeMDP(object):
         Returns
         -------
         changed: bool
-            Indicates whether self.ret and the newly computed set are different or not
+            Indicates whether self.ret and the newly computed set are
+            different or not
         """
 
         # Initialize
         recover_to_ret = np.zeros(self.S.shape, dtype=bool)
 
         # From s in S to (s,a) in ret
-        recover_to_ret[self.S[:, 0], 0] = np.any(np.logical_and(self.S[self.S[:, 0], 1:], self.ret[self.S[:, 0], 1:]), axis=1)
+        recover_to_ret[self.S[:, 0], 0] = np.any(
+            np.logical_and(self.S[self.S[:, 0], 1:],
+                           self.ret[self.S[:, 0], 1:]), axis=1)
 
         # From (s,a) in S to s in ret
         for action in range(1, self.S.shape[1]):
@@ -277,13 +290,17 @@ class SafeMDP(object):
         for action in range(1, self.S_hat.shape[1]):
 
             # Extract distance from safe points to non safe ones
-            dist_tmp = self.d[np.ix_(self.S_hat[:, action], np.logical_not(self.S[:, action]))]
+            dist_tmp = self.d[np.ix_(self.S_hat[:, action],
+                                     np.logical_not(self.S[:, action]))]
 
             # Find states for which (s, action) is in S_hat
             non_zeros = states_ind[self.S_hat[:, action]]
 
             # Check condition for expanders
-            expanders = non_zeros[np.any(self.u[self.S_hat[:, action], action:action+1] - self.L*dist_tmp >= self.h, axis=1)]
+            expanders = non_zeros[np.any(self.u[self.S_hat[:, action],
+                                         action:action + 1] - self.L *
+                                         dist_tmp >= self.h,
+                                         axis=1)]
             if expanders.size != 0:
                 self.G[expanders, action] = True
 
@@ -296,9 +313,9 @@ class SafeMDP(object):
 
         # Actions that takes agent out of boundaries are assumed to be unsafe
         n, m = self.world_shape
-        self.S[m-1:m*(n+1)-1:m, 1] = False
-        self.S[(n-1)*m:n*m, 2] = False
-        self.S[0:n*m:m, 3] = False
+        self.S[m - 1:m * (n + 1) - 1:m, 1] = False
+        self.S[(n - 1) * m:n * m, 2] = False
+        self.S[0:n * m:m, 3] = False
         self.S[0:m, 4] = False
 
         self.reach[:] = self.S_hat
@@ -309,7 +326,8 @@ class SafeMDP(object):
         while self.r_ret():
             pass
         self.S_hat_old[:] = self.S_hat
-        self.S_hat[:] = np.logical_or(self.S_hat, np.logical_and(self.reach, self.ret))
+        self.S_hat[:] = np.logical_or(self.S_hat,
+                                      np.logical_and(self.reach, self.ret))
 
         self.compute_expanders()
 
@@ -320,12 +338,14 @@ class SafeMDP(object):
         Parameters
         ----------
         S: np.array(dtype=bool)
-            n_states x (n_actions + 1) array of boolean values that indicates the safe set
+            n_states x (n_actions + 1) array of boolean values that indicates
+            the safe set
 
         """
         for action in range(1):
             plt.figure(action)
-            plt.imshow(np.reshape(S[:, action], self.world_shape).T, origin="lower", interpolation="nearest")
+            plt.imshow(np.reshape(S[:, action], self.world_shape).T,
+                       origin="lower", interpolation="nearest")
             plt.title("action " + str(action))
         plt.show()
 
@@ -345,23 +365,26 @@ class SafeMDP(object):
 
         # Observation of previous state
         state_vec_ind = mat2vec(state_mat_ind, self.world_shape)
-        obs_state = self.altitudes[state_vec_ind] # + self.noise*np.random.randn(1)
-        tmpX = np.vstack((self.gp.X, self.coord[state_vec_ind, :].reshape(1, 2)))
+        obs_state = self.altitudes[state_vec_ind]
+        tmpX = np.vstack((self.gp.X,
+                          self.coord[state_vec_ind, :].reshape(1, 2)))
         tmpY = np.vstack((self.gp.Y, obs_state))
 
         # Observation of next state
         next_state_mat_ind = self.dynamics(state_mat_ind, action)
         next_state_vec_ind = mat2vec(next_state_mat_ind, self.world_shape)
-        obs_next_state = self.altitudes[next_state_vec_ind] # + self.noise*np.random.randn(1)
+        obs_next_state = self.altitudes[next_state_vec_ind]
 
         # Update observations
-        tmpX = np.vstack((tmpX, self.coord[next_state_vec_ind, :].reshape(1, 2)))
+        tmpX = np.vstack((tmpX,
+                          self.coord[next_state_vec_ind, :].reshape(1, 2)))
         tmpY = np.vstack((tmpY, obs_next_state))
         self.gp.set_XY(tmpX, tmpY)
 
     def target_sample(self):
         """
-        Compute the next target (s, a) to sample (highest uncertainty within G or S_hat)
+        Compute the next target (s, a) to sample (highest uncertainty within
+        G or S_hat)
         """
         if np.any(self.G):
             # Extract elements in G
@@ -449,19 +472,22 @@ class SafeMDP(object):
         for action in range(1, self.S.shape[1]):
             next_mat_ind = self.dynamics(self.ind, action)
             next_vec_ind = mat2vec(next_mat_ind, self.world_shape)
-            true_safe[:, action] = ((self.altitudes - self.altitudes[next_vec_ind])/self.step_size[0]) >= self.h
+            true_safe[:, action] = ((self.altitudes -
+                                     self.altitudes[next_vec_ind]) /
+                                    self.step_size[0]) >= self.h
 
         # (s, a) pairs that lead out of boundaries are not safe
         n, m = self.world_shape
-        true_safe[m-1:m*(n+1)-1:m, 1] = False
-        true_safe[(n-1)*m:n*m, 2] = False
-        true_safe[0:n*m:m, 3] = False
+        true_safe[m - 1:m * (n + 1) - 1:m, 1] = False
+        true_safe[(n - 1) * m:n * m, 2] = False
+        true_safe[0:n * m:m, 3] = False
         true_safe[0:m, 4] = False
         return true_safe
 
     def compute_true_S_hat(self):
         """
-        Computes the safe set with reachability and recovery properties given a perfect knowledge of the map
+        Computes the safe set with reachability and recovery properties
+        given a perfect knowledge of the map
 
         Returns
         -------
@@ -483,8 +509,10 @@ class SafeMDP(object):
         while self.r_ret():
             pass
 
-        # Points are either in S_hat or in the intersection of reachable and recovery sets
-        true_S_hat[:] = np.logical_or(self.S_hat, np.logical_and(self.ret, self.reach))
+        # Points are either in S_hat or in the intersection of reachable and
+        #  recovery sets
+        true_S_hat[:] = np.logical_or(self.S_hat,
+                                      np.logical_and(self.ret, self.reach))
 
         # Reset value of S
         self.S[:] = tmp
@@ -492,7 +520,8 @@ class SafeMDP(object):
 
     def compute_S_hat0(self):
         """
-        Compute a random initial safe seed. WARNING:  at the moment actions for returning are not included
+        Compute a random initial safe seed. WARNING:  at the moment actions
+        for returning are not included
 
         Returns
         ------
@@ -508,15 +537,19 @@ class SafeMDP(object):
             # Pick random state
             s = np.random.choice(self.ind.shape[0])
 
-            # Compute next state for every action and check safety of (s, a) pair
+            # Compute next state for every action and check safety of (s, a)
+            # pair
             s_next = np.empty(self.S.shape[1] - 1, dtype=int)
             for action in range(1, self.S.shape[1]):
 
-                s_next[action - 1] = mat2vec(self.dynamics(self.ind[s, :], action), self.world_shape).astype(int)
+                s_next[action - 1] = mat2vec(
+                    self.dynamics(self.ind[s, :], action),
+                    self.world_shape).astype(int)
                 alt = self.altitudes[s]
                 alt_next = self.altitudes[s_next[action - 1]]
 
-                if s != s_next[action - 1] and (alt-alt_next)/self.step_size[0] >= self.h:
+                if s != (s_next[action - 1] and (alt - alt_next) /
+                         self.step_size[0] >= self.h):
                     safe[action - 1] = True
         # Set initial state, (s, a) pairs and arrival state as safe
         s_next = s_next[safe]
@@ -527,7 +560,8 @@ class SafeMDP(object):
 
     def dynamics_vec_ind(self, states_vec_ind, action):
         """
-        Dynamic evolution of the system defined in vector representation of the states
+        Dynamic evolution of the system defined in vector representation of
+        the states
 
         Parameters
         ----------
@@ -551,7 +585,7 @@ class SafeMDP(object):
             next_states_vec_ind[condition] = states_vec_ind[condition]
         elif action == 2:
             next_states_vec_ind[:] = states_vec_ind + m
-            condition = next_states_vec_ind >= m*n
+            condition = next_states_vec_ind >= m * n
             next_states_vec_ind[condition] = states_vec_ind[condition]
         elif action == 3:
             next_states_vec_ind[:] = states_vec_ind - 1
@@ -574,7 +608,8 @@ class SafeMDP(object):
     #         safe_states_vec_ind = states_vec_ind[self.S_hat[:, action]]
     #
     #         # Resulting states when applying action at safe_states_vec_ind
-    #         next_states_vec_ind = self.dynamics_vec_ind(safe_states_vec_ind, action)
+    #         next_states_vec_ind = self.dynamics_vec_ind(
+    # safe_states_vec_ind, action)
     #
     #         # Resulting states that are also safe
     #         condition = self.S_hat[next_states_vec_ind, 0]
@@ -582,18 +617,21 @@ class SafeMDP(object):
     #         # Add edges to graph
     #         start = self.ind[safe_states_vec_ind[condition], :]
     #         end = self.ind[next_states_vec_ind[condition], :]
-    #         self.graph.add_edges_from(zip(map(tuple, start), map(tuple, end)))
+    #         self.graph.add_edges_from(zip(map(tuple, start), map(tuple,
+    # end)))
 
     def compute_graph_lazy(self):
         states_vec_ind = np.arange(self.S_hat.shape[0])
 
         for action in range(1, self.S_hat.shape[1]):
-
             # States where is safe to apply action = action
-            safe_states_vec_ind = states_vec_ind[np.logical_and(self.S_hat[:, action], np.logical_not(self.S_hat_old[:, action]))]
+            safe_states_vec_ind = states_vec_ind[
+                np.logical_and(self.S_hat[:, action],
+                               np.logical_not(self.S_hat_old[:, action]))]
 
             # Resulting states when applying action at safe_states_vec_ind
-            next_states_vec_ind = self.dynamics_vec_ind(safe_states_vec_ind, action)
+            next_states_vec_ind = self.dynamics_vec_ind(safe_states_vec_ind,
+                                                        action)
 
             # Resulting states that are also safe
             condition = self.S_hat[next_states_vec_ind, 0]
@@ -601,7 +639,8 @@ class SafeMDP(object):
             # Add edges to graph
             start = self.ind[safe_states_vec_ind[condition], :]
             end = self.ind[next_states_vec_ind[condition], :]
-            self.graph_lazy.add_edges_from(zip(map(tuple, start), map(tuple, end)))
+            self.graph_lazy.add_edges_from(zip(map(tuple, start),
+                                               map(tuple, end)))
 
 
 def vec2mat(vec_ind, world_shape):
@@ -611,17 +650,19 @@ def vec2mat(vec_ind, world_shape):
     Parameters
     ----------
     vec_ind: np.array
-        Each element contains the vector indexing of a state we want to do the convesrion for
+        Each element contains the vector indexing of a state we want to do
+        the convesrion for
     world_shape: shape
         Tuple that contains the shape of the grid world n x m
 
     Returns
     -------
     return: np.array
-        ith row contains the (x,y) coordinates of the ith element of the input vector vec_ind
+        ith row contains the (x,y) coordinates of the ith element of the
+        input vector vec_ind
     """
     n, m = world_shape
-    row = np.floor(vec_ind/m)
+    row = np.floor(vec_ind / m)
     col = np.mod(vec_ind, m)
     return np.array([row, col]).astype(int)
 
@@ -633,7 +674,8 @@ def mat2vec(states_mat_ind, world_shape):
     Parameters
     ----------
     states_mat_ind: np.array
-        Each row contains the (x,y) coordinates of each state we want to do the conversion for
+        Each row contains the (x,y) coordinates of each state we want to do
+        the conversion for
     world_shape: shape
         Tuple that contains the shape of the grid world n x m
 
@@ -646,13 +688,14 @@ def mat2vec(states_mat_ind, world_shape):
     if states_mat_ind.ndim == 1:
         states_mat_ind = states_mat_ind.reshape(1, 2)
     m = world_shape[1]
-    vec_ind = states_mat_ind[:, 1] + states_mat_ind[:, 0]*m
+    vec_ind = states_mat_ind[:, 1] + states_mat_ind[:, 0] * m
     return vec_ind.astype(int)
 
 
 def draw_gp_sample(kernel, world_shape, step_size):
     """
-    Draws a sample from a Gaussian process distribution over a user specified grid
+    Draws a sample from a Gaussian process distribution over a user
+    specified grid
 
     Parameters
     ----------
@@ -666,7 +709,9 @@ def draw_gp_sample(kernel, world_shape, step_size):
     # Compute linearly spaced grid
     n, m = world_shape
     step1, step2 = step_size
-    xx, yy = np.meshgrid(np.linspace(0, (n-1) * step1, n), np.linspace(0, (m-1)*step2, m), indexing="ij")
+    xx, yy = np.meshgrid(np.linspace(0, (n - 1) * step1, n),
+                         np.linspace(0, (m - 1) * step2, m),
+                         indexing="ij")
     coord = np.vstack((xx.flatten(), yy.flatten())).T
 
     # Draw a sample from GP
@@ -680,9 +725,11 @@ def manhattan_dist(a, b):
     (x2, y2) = b
     return np.fabs(x1 - x2) + np.fabs(y1 - y2)
 
+
 # test
 if __name__ == "__main__":
     import time
+
     mars = False
 
     if mars:
@@ -692,13 +739,15 @@ if __name__ == "__main__":
         world_shape = (60, 60)
         step_size = (1., 1.)
         gdal.UseExceptions()
-        ds = gdal.Open("/Users/matteoturchetta/PycharmProjects/SafeMDP/src/mars.tif")
+        ds = gdal.Open(
+            "/Users/matteoturchetta/PycharmProjects/SafeMDP/src/mars.tif")
         band = ds.GetRasterBand(1)
         elevation = band.ReadAsArray()
         startX = 11370
         startY = 3110
-        altitudes = np.copy(elevation[startX:startX+world_shape[0], startY:startY+world_shape[1]])
-        mean_val = (np.max(altitudes) + np.min(altitudes))/2.
+        altitudes = np.copy(elevation[startX:startX + world_shape[0],
+                            startY:startY + world_shape[1]])
+        mean_val = (np.max(altitudes) + np.min(altitudes)) / 2.
         altitudes[:] = altitudes - mean_val
 
         plt.imshow(altitudes.T, origin="lower", interpolation="nearest")
@@ -709,11 +758,12 @@ if __name__ == "__main__":
         # Define coordinates
         n, m = world_shape
         step1, step2 = step_size
-        xx, yy = np.meshgrid(np.linspace(0, (n-1) * step1, n), np.linspace(0, (m-1)*step2, m), indexing="ij")
+        xx, yy = np.meshgrid(np.linspace(0, (n - 1) * step1, n),
+                             np.linspace(0, (m - 1) * step2, m), indexing="ij")
         coord = np.vstack((xx.flatten(), yy.flatten())).T
 
         # Safety threshold
-        h = -np.tan(np.pi/6.)
+        h = -np.tan(np.pi / 6.)
 
         # Lipschitz
         L = 1.
@@ -737,18 +787,21 @@ if __name__ == "__main__":
         n_samples = 1
         ind = np.random.choice(range(altitudes.size), n_samples)
         X = coord[ind, :]
-        Y = altitudes[ind].reshape(n_samples, 1) + np.random.randn(n_samples, 1)
+        Y = altitudes[ind].reshape(n_samples, 1) + np.random.randn(n_samples,
+                                                                   1)
 
         for index, length in enumerate(lengthScale):
 
             # Define and initialize GP
             noise = 0.04
-            kernel = GPy.kern.RBF(input_dim=2, lengthscale=length, variance=121.)
-            lik = GPy.likelihoods.Gaussian(variance=noise**2)
+            kernel = GPy.kern.RBF(input_dim=2, lengthscale=length,
+                                  variance=121.)
+            lik = GPy.likelihoods.Gaussian(variance=noise ** 2)
             gp = GPy.core.GP(X, Y, kernel, lik)
 
             # Define SafeMDP object
-            x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise, L)
+            x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0,
+                        S_hat0, noise, L)
 
             # Insert samples from (s, a) in S_hat0
             tmp = np.arange(x.ind.shape[0])
@@ -759,7 +812,8 @@ if __name__ == "__main__":
             for i in range(1):
                 x.add_observation(state, np.random.choice(actions))
 
-            # Remove samples used for GP initialization and possibly hyperparameters optimization
+            # Remove samples used for GP initialization and possibly
+            # hyperparameters optimization
             x.gp.set_XY(x.gp.X[n_samples:, :], x.gp.Y[n_samples:])
 
             t = time.time()
@@ -769,20 +823,26 @@ if __name__ == "__main__":
                 x.add_observation(x.target_state, x.target_action)
                 # print (x.target_state, x.target_action)
                 # print(i)
-                print (np.any(x.G))
-            print (str(time.time() - t) + "seconds elapsed")
+                print(np.any(x.G))
+            print(str(time.time() - t) + "seconds elapsed")
 
             # Plot safe sets
             x.plot_S(x.S_hat)
             x.plot_S(x.true_S_hat)
 
             # Print and store performance
-            print(np.sum(np.logical_and(x.true_S_hat, np.logical_not(x.S_hat))))  # in true S_hat and not S_hat
-            print(np.sum(np.logical_and(x.S_hat, np.logical_not(x.true_S_hat))))  # in S_hat and not true S_hat
+            print(np.sum(np.logical_and(x.true_S_hat,
+                                        np.logical_not(x.S_hat))))
+            # in true S_hat and not S_hat
+            print(np.sum(np.logical_and(x.S_hat,
+                                        np.logical_not(x.true_S_hat))))
+            # in S_hat and not true S_hat
             size_S_hat[index] = np.sum(x.S_hat)
             size_true_S_hat[index] = np.sum(x.true_S_hat)
-            true_S_hat_minus_S_hat[index] = np.sum(np.logical_and(x.true_S_hat, np.logical_not(x.S_hat)))
-            S_hat_minus_true_S_hat[index] = np.sum(np.logical_and(x.S_hat, np.logical_not(x.true_S_hat)))
+            true_S_hat_minus_S_hat[index] = np.sum(
+                np.logical_and(x.true_S_hat, np.logical_not(x.S_hat)))
+            S_hat_minus_true_S_hat[index] = np.sum(
+                np.logical_and(x.S_hat, np.logical_not(x.true_S_hat)))
 
     else:
         # Define world
@@ -791,7 +851,8 @@ if __name__ == "__main__":
 
         # Define GP
         noise = 0.001
-        kernel = GPy.kern.RBF(input_dim=2, lengthscale=(2., 2.), variance=1., ARD=True)
+        kernel = GPy.kern.RBF(input_dim=2, lengthscale=(2., 2.), variance=1.,
+                              ARD=True)
         lik = GPy.likelihoods.Gaussian(variance=noise ** 2)
         lik.constrain_bounded(1e-6, 10000.)
 
@@ -805,7 +866,9 @@ if __name__ == "__main__":
         # Define coordinates
         n, m = world_shape
         step1, step2 = step_size
-        xx, yy = np.meshgrid(np.linspace(0, (n-1) * step1, n), np.linspace(0, (m-1)*step2, m), indexing="ij")
+        xx, yy = np.meshgrid(np.linspace(0, (n - 1) * step1, n),
+                             np.linspace(0, (m - 1) * step2, m),
+                             indexing="ij")
         coord = np.vstack((xx.flatten(), yy.flatten())).T
 
         # Safety threhsold
@@ -821,7 +884,8 @@ if __name__ == "__main__":
         n_samples = 1
         ind = np.random.choice(range(altitudes.size), n_samples)
         X = coord[ind, :]
-        Y = altitudes[ind].reshape(n_samples, 1) + np.random.randn(n_samples, 1)
+        Y = altitudes[ind].reshape(n_samples, 1) + np.random.randn(n_samples,
+                                                                   1)
         gp = GPy.core.GP(X, Y, kernel, lik)
 
         # Initialize safe sets
@@ -830,9 +894,10 @@ if __name__ == "__main__":
         S_hat0 = np.nan
 
         # Define SafeMDP object
-        x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0, noise, L)
+        x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0,
+                    noise, L)
 
-       # Insert samples from (s, a) in S_hat0
+        # Insert samples from (s, a) in S_hat0
         tmp = np.arange(x.ind.shape[0])
         s_vec_ind = tmp[np.any(x.S_hat[:, 1:], axis=1)]
         state = vec2mat(s_vec_ind, x.world_shape).T
@@ -856,12 +921,13 @@ if __name__ == "__main__":
             # plt.show()
             print("Iteration:   " + str(i))
 
-        print (str(time.time() - t) + "seconds elapsed")
+        print(str(time.time() - t) + "seconds elapsed")
 
         # Plot safe sets
         x.plot_S(x.S_hat)
         x.plot_S(x.true_S_hat)
 
         # Classification performance
-        print(np.sum(np.logical_and(x.true_S_hat, np.logical_not(x.S_hat))))  # in true S_hat and not S_hat
+        print(np.sum(np.logical_and(x.true_S_hat, np.logical_not(
+            x.S_hat))))  # in true S_hat and not S_hat
         print(np.sum(np.logical_and(x.S_hat, np.logical_not(x.true_S_hat))))
