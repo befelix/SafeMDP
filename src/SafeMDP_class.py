@@ -182,21 +182,23 @@ class SafeMDP(object):
         """
 
         # Initialize
-        reachable_from_reach = np.zeros(self.S.shape, dtype=bool)
+        reachable_from_reach = self.reach.copy()
 
-        # From s to (s,a) pair
+        # If s is safe, then (s, a) is safe for all a    s -> (s,a)
         reachable_from_reach[self.reach[:, 0], 1:] =\
             self.S[self.reach[:, 0], 1:]
 
-        # From (s,a) to s
+        # If (s, a) is safe and reachable, then add s' to the reachable set
         for action in range(1, self.S.shape[1]):
-            tmp = self.boolean_dynamics(self.reach[:, action], action)
-            reachable_from_reach[:, 0] = np.logical_or(
-                reachable_from_reach[:, 0], tmp)
-        reachable_from_reach[:, 0] = np.logical_and(reachable_from_reach[:, 0],
-                                                    self.S[:, 0])
-        reachable_from_reach = np.logical_or(reachable_from_reach, self.reach)
-        changed = not np.all(self.reach == reachable_from_reach)
+            reachable_from_reach[:, 0] |= self.boolean_dynamics(
+                self.reach[:, action],
+                action)
+
+        # But only if s' is safe
+        reachable_from_reach[:, 0] &= self.S[:, 0]
+
+        reachable_from_reach |= self.reach
+        changed = np.any(self.reach != reachable_from_reach)
         self.reach[:] = reachable_from_reach
         return changed
 
