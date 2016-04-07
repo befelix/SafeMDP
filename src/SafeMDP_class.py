@@ -197,7 +197,6 @@ class SafeMDP(object):
         # But only if s' is safe
         reachable_from_reach[:, 0] &= self.S[:, 0]
 
-        reachable_from_reach |= self.reach
         changed = np.any(self.reach != reachable_from_reach)
         self.reach[:] = reachable_from_reach
         return changed
