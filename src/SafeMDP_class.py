@@ -4,6 +4,7 @@ import GPy
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import cdist
 import networkx as nx
+import os
 
 
 class SafeMDP(object):
@@ -768,7 +769,7 @@ def manhattan_dist(a, b):
 if __name__ == "__main__":
     import time
 
-    mars = False
+    mars = True
 
     if mars:
         from osgeo import gdal
@@ -777,7 +778,20 @@ if __name__ == "__main__":
         world_shape = (60, 60)
         step_size = (1., 1.)
         gdal.UseExceptions()
-        ds = gdal.Open("/Users/matteoturchetta/PycharmProjects/SafeMDP/src/mars.tif")
+
+        # If the file is not in the current folder
+        if not os.path.exists("./mars.tif"):
+            import urllib
+            # Download the file
+            urllib.urlretrieve(
+                "http://www.uahirise.org//PDS/DTM/ESP/ORB_033600_033699"
+                "/ESP_033617_1990_ESP_034316_1990"
+                "/DTEED_033617_1990_034316_1990_A01.IMG", "mars.IMG")
+
+            # Translate the file to geotiff
+            # os.system("gdal_translate -of GTiff ./mars.IMG ./mars.tif")
+
+        ds = gdal.Open("./mars.tif")
         band = ds.GetRasterBand(1)
         elevation = band.ReadAsArray()
         startX = 11370
