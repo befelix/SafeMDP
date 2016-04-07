@@ -103,26 +103,18 @@ class SafeMDP(object):
         mu, s = self.gp.predict_jacobian(self.coord, full_cov=False)
         mu = np.squeeze(mu)
 
-        # Initialize mean and variance over abstract MDP
-        mu_abstract = np.zeros(self.S.shape)
-        s_abstract = np.copy(mu_abstract)
+        # Confidence interval
+        s = self.beta * np.sqrt(s)
 
-        # Safety features for real states s
-        mu_abstract[:, 0] = self.h
-        s_abstract[:, 0] = 0
+        # State are always safe
+        self.l[:, 0] = self.u[:, 0] = self.h
 
-        # Safety feature for (s,a) pairs
-        mu_abstract[:, 1] = -mu[:, 1]
-        mu_abstract[:, 3] = mu[:, 1]
-        s_abstract[:, 1] = s[:, 1]
-        s_abstract[:, 3] = s[:, 1]
-        mu_abstract[:, 2] = -mu[:, 0]
-        mu_abstract[:, 4] = mu[:, 0]
-        s_abstract[:, 2] = s[:, 0]
-        s_abstract[:, 4] = s[:, 0]
-        # Lower and upper bound of confidence interval
-        self.l = mu_abstract - self.beta * np.sqrt(s_abstract)
-        self.u = mu_abstract + self.beta * np.sqrt(s_abstract)
+        # Update safety feature
+        self.l[:, [1, 2]] = -mu[:, ::-1] - s[:, ::-1]
+        self.l[:, [3, 4]] = mu[:, ::-1] - s[:, ::-1]
+
+        self.u[:, [1, 2]] = -mu[:, ::-1] + s[:, ::-1]
+        self.u[:, [3, 4]] = mu[:, ::-1] + s[:, ::-1]
 
     def boolean_dynamics(self, bool_mat, action):
         """
