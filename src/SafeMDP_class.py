@@ -430,8 +430,9 @@ class SafeMDP(object):
             max_id = np.argmax(w)
 
         else:
-            raise RuntimeWarning('No expanders, using most uncertain element'
-                                 'in S_hat instead.')
+            print('No expanders, using most uncertain element in S_hat'
+                  'instead.')
+
             # Extract elements in S_hat
             expander_id = np.nonzero(self.S_hat)
 
@@ -775,17 +776,18 @@ if __name__ == "__main__":
         step_size = (1., 1.)
         gdal.UseExceptions()
 
-        # If the file is not in the current folder
-        if not os.path.exists("./mars.tif"):
-            import urllib
-            # Download the file
-            urllib.urlretrieve(
-                "http://www.uahirise.org//PDS/DTM/ESP/ORB_033600_033699"
-                "/ESP_033617_1990_ESP_034316_1990"
-                "/DTEED_033617_1990_034316_1990_A01.IMG", "mars.IMG")
+        # Download data files
+        if not os.path.exists('./mars.tif'):
+            if not os.path.exists("./mars.IMG"):
+                import urllib
+                # Download the IMG file
+                urllib.urlretrieve(
+                    "http://www.uahirise.org//PDS/DTM/ESP/ORB_033600_033699"
+                    "/ESP_033617_1990_ESP_034316_1990"
+                    "/DTEED_033617_1990_034316_1990_A01.IMG", "mars.IMG")
 
-            # Translate the file to geotiff
-            # os.system("gdal_translate -of GTiff ./mars.IMG ./mars.tif")
+            # Convert to tif
+            os.system("gdal_translate -of GTiff ./mars.IMG ./mars.tif")
 
         ds = gdal.Open("./mars.tif")
         band = ds.GetRasterBand(1)
