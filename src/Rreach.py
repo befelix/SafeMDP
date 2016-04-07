@@ -22,8 +22,9 @@ def dynamics(states, action, world_shape):
     Returns
     -------
     next_states: np.array
-                 Two dimensional array. Each row contains the (x,y) coordinates
-                  of the state that results from applying action to the corresponding row of the input states
+        Two dimensional array. Each row contains the (x,y) coordinates of the
+        state that results from applying action to the corresponding row of the
+        input states
     """
     n, m = world_shape
     next_states = np.copy(states)
@@ -51,15 +52,16 @@ def mat2vec(states_mat_ind, world_shape):
     Parameters
     ----------
     states_mat_ind: np.array
-                    Each row contains the (x,y) coordinates of each state we want to do the conversion for
+        Each row contains the (x,y) coordinates of each state we want to do the
+        conversion for
     world_shape: shape
-                 Tuple that contains the shape of the grid world n x m
+        Tuple that contains the shape of the grid world n x m
 
     Returns
     -------
     vec_ind: np.array
-             Each element contains the vector indexing of the point in the
-             corresponding row of the input states_mat_ind
+        Each element contains the vector indexing of the point in the
+        corresponding row of the input states_mat_ind
     """
     m = world_shape[1]
     vec_ind = states_mat_ind[:, 1] + states_mat_ind[:, 0]*m
@@ -96,20 +98,21 @@ def r_reach(S_hat, S, world_shape):
 
     Parameters
     ----------
-
     S_hat: np.array(dtype=bool)
-           n_states x n_action array. Safe set with ergodicity properties from previous iteration.
+        n_states x n_action array. Safe set with ergodicity properties from
+        previous iteration.
     S: np.array(dtype=bool)
-       n_states x n_action array. Set of points above the safety threshold at current iteration
+        n_states x n_action array. Set of points above the safety threshold at
+        current iteration
     world_shape: shape
-                 Tuple that contains the shape of the grid world n x m
+        Tuple that contains the shape of the grid world n x m
 
     Returns
     -------
 
     return: np.array(dtype=bool)
-            n_states x n_action array. Union of S_hat and the set of points
-            reachable from S_hat that is above safety threshold
+        n_states x n_action array. Union of S_hat and the set of points
+        reachable from S_hat that is above safety threshold
     """
 
     # Initialize
@@ -133,11 +136,11 @@ def plot_S(S, world_shape):
 
     Parameters
     ----------
-
     S: np.array(dtype=bool)
-       n_states x (n_actions + 1) array of boolean values that indicates the safe set
+        n_states x (n_actions + 1) array of boolean values that indicates the
+        safe set
     world_shape: shape
-                 Tuple that contains the shape of the grid world n x m
+        Tuple that contains the shape of the grid world n x m
 
     Returns
     -------
@@ -145,7 +148,8 @@ def plot_S(S, world_shape):
     """
     for action in range(1): # np.arange(S.shape[1]):
         plt.figure(action)
-        plt.imshow(np.reshape(S[:, action], world_shape), origin="lower", interpolation="nearest")
+        plt.imshow(np.reshape(S[:, action], world_shape),
+                   origin="lower", interpolation="nearest")
         plt.title("action " + str(action))
     plt.show()
 
@@ -154,7 +158,8 @@ if __name__ == "__main__":
     # Test the code
     n = 4
     world_shape = (6, 4)
-    x, y = np.meshgrid(np.arange(world_shape[0]), np.arange(world_shape[1]), indexing="ij")
+    x, y = np.meshgrid(np.arange(world_shape[0]), np.arange(world_shape[1]),
+                       indexing="ij")
     states_ind = np.hstack((x.reshape(x.size, 1), y.reshape(y.size, 1)))
     S = np.ones((world_shape[0] * world_shape[1], 5), dtype=bool)
 
