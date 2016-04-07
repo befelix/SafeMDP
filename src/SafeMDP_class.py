@@ -29,7 +29,7 @@ class SafeMDP(object):
         self.L = L
 
         # Distances
-        self.d = cdist(self.coord, self.coord)
+        self.distance_matrix = cdist(self.coord, self.coord)
 
         # Safe and expanders sets
         self.S = S0
@@ -269,7 +269,7 @@ class SafeMDP(object):
         recover_to_ret[self.S[:, 0], 0] = np.any(
             np.logical_and(self.S[self.S[:, 0], 1:],
                            self.ret[self.S[:, 0], 1:]),
-            xis=1)
+            axis=1)
 
         # From (s,a) in S to s in ret
         for action in range(1, self.S.shape[1]):
@@ -284,24 +284,21 @@ class SafeMDP(object):
         return changed
 
     def compute_expanders(self):
+        """Compute the expanders based on the current estimate of S_hat."""
         self.G[:] = False
-        states_ind = np.arange(self.S_hat.shape[0])
+
         for action in range(1, self.S_hat.shape[1]):
 
+            # action-specific safe set
+            s_hat = self.S_hat[:, action]
+
             # Extract distance from safe points to non safe ones
-            dist_tmp = self.d[np.ix_(self.S_hat[:, action],
-                                     np.logical_not(self.S[:, action]))]
+            distance = self.distance_matrix[np.ix_(s_hat, ~self.S[:, action])]
 
-            # Find states for which (s, action) is in S_hat
-            non_zeros = states_ind[self.S_hat[:, action]]
-
-            # Check condition for expanders
-            expanders = non_zeros[np.any(self.u[self.S_hat[:, action],
-                                         action:action + 1] - self.L *
-                                         dist_tmp >= self.h,
-                                         axis=1)]
-            if expanders.size != 0:
-                self.G[expanders, action] = True
+            # Update expanders for this particular action
+            self.G[s_hat, action] = np.any(
+                self.u[s_hat, action, None] - self.L * distance >= self.h,
+                axis=1)
 
     def update_sets(self):
         """
@@ -404,6 +401,8 @@ class SafeMDP(object):
             ind = np.argmax(w)
 
         else:
+            raise RuntimeWarning('No expanders, using most uncertain element'
+                                 'in S_hat instead.')
             # Extract elements in S_hat
             non_z = np.nonzero(self.S_hat)
 
@@ -746,9 +745,6 @@ if __name__ == "__main__":
         world_shape = (60, 60)
         step_size = (1., 1.)
         gdal.UseExceptions()
-        import os
-        if not os.path.exists('./mars.tif'):
-            #download ...
         ds = gdal.Open(
             "/Users/matteoturchetta/PycharmProjects/SafeMDP/src/mars.tif")
         band = ds.GetRasterBand(1)
