@@ -303,12 +303,16 @@ class SafeMDP(object):
         self.update_confidence_interval()
         self.S = self.l >= self.h
 
-        # Actions that takes agent out of boundaries are assumed to be unsafe
+        # Reshape to array where the first index corresponds to the action
         n, m = self.world_shape
-        self.S[m - 1:m * (n + 1) - 1:m, 1] = False
-        self.S[(n - 1) * m:n * m, 2] = False
-        self.S[0:n * m:m, 3] = False
-        self.S[0:m, 4] = False
+        S_grid = self.S.T.reshape((-1, n, m))
+
+        # Actions that takes agent out of boundaries are assumed to be unsafe
+        # order (right, bottom, left, top)
+        S_grid[1, :, -1] = False
+        S_grid[2, -1, :] = False
+        S_grid[3, :, 0] = False
+        S_grid[4, 0, :] = False
 
         self.reach[:] = self.S_hat
         self.ret[:] = self.S_hat
