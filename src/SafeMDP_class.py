@@ -4,11 +4,43 @@ import GPy
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import cdist
 import networkx as nx
+import os
 
 
 class SafeMDP(object):
     def __init__(self, gp, world_shape, step_size, beta, altitudes, h, S0,
                  S_hat0, noise, L):
+        """
+        Parameters
+        ----------
+
+        gp: GPy.core.GP
+            Gaussian process that expresses our current belief over the safety feature
+        world_shape: shape
+                     Tuple that contains the shape of the grid world n x m
+        step_size: tuple of floats
+                   Tuple that contains the step sizes along each direction to create a linearly spaced grid
+        beta: float
+              Scaling factor to determine the amplitude of the confidence intervals
+        altitudes: np.array
+                   It contains the flattened n x m matrix where the altitudes of all the points in the map are stored
+        h: float
+           Safety threshold
+        S0: np.array
+            n_states x (n_actions + 1) array of booleans that indicates which
+            states (first column) and which state-action pairs belong to the
+            initial safe seed. Notice that, by convention we initialize all
+            the states to be safe
+        S_hat0: np.array or nan
+            n_states x (n_actions + 1) array of booleans that indicates which
+            states (first column) and which state-action pairs belong to the
+            initial safe seed and satisfy recovery and reachability properties.
+            If it is nan, such a boolean matrix is computed during initialization
+        noise: float
+               Standard deviation of the measurement noise
+        L: float
+           Lipschitz constant to compute expanders
+        """
 
         self.gp = gp
         #    self.kernel = gp.kern
@@ -733,7 +765,7 @@ def manhattan_dist(a, b):
 if __name__ == "__main__":
     import time
 
-    mars = False
+    mars = True
 
     if mars:
         from osgeo import gdal
@@ -742,21 +774,38 @@ if __name__ == "__main__":
         world_shape = (60, 60)
         step_size = (1., 1.)
         gdal.UseExceptions()
-        ds = gdal.Open(
-            "/Users/matteoturchetta/PycharmProjects/SafeMDP/src/mars.tif")
+
+        # If the file is not in the current folder
+        if not os.path.exists("./mars.tif"):
+            import urllib
+            # Download the file
+            urllib.urlretrieve(
+                "http://www.uahirise.org//PDS/DTM/ESP/ORB_033600_033699"
+                "/ESP_033617_1990_ESP_034316_1990"
+                "/DTEED_033617_1990_034316_1990_A01.IMG", "mars.IMG")
+
+            # Translate the file to geotiff
+            # os.system("gdal_translate -of GTiff ./mars.IMG ./mars.tif")
+
+        ds = gdal.Open("./mars.tif")
         band = ds.GetRasterBand(1)
         elevation = band.ReadAsArray()
         startX = 11370
         startY = 3110
-        altitudes = np.copy(elevation[startX:startX + world_shape[0],
-                            startY:startY + world_shape[1]])
-        mean_val = (np.max(altitudes) + np.min(altitudes)) / 2.
+        altitudes = np.copy(elevation[startX:startX+world_shape[0], startY:startY+world_shape[1]])
+        mean_val = (np.max(altitudes) + np.min(altitudes))/2.
         altitudes[:] = altitudes - mean_val
 
         plt.imshow(altitudes.T, origin="lower", interpolation="nearest")
         plt.colorbar()
         plt.show()
         altitudes = altitudes.flatten()
+
+        # Define coordinates
+        n, m = world_shape
+        step1, step2 = step_size
+        xx, yy = np.meshgrid(np.linspace(0, (n-1) * step1, n), np.linspace(0, (m-1)*step2, m), indexing="ij")
+        coord = np.vstack((xx.flatten(), yy.flatten())).T
 
         # Define coordinates
         n, m = world_shape
