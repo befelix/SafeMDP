@@ -491,6 +491,9 @@ class SafeMDP(object):
         # All true states are safe
         true_safe[:, 0] = True
 
+        # TODO: This should be a function that takes mean and variance (in
+        # TODO: this case 0) and returns the safety matrix. Then we can use the
+        # TODO: same function in `update_confidence_intervals(.)`
         # Compute safe (s, a) pairs
         for action in range(1, self.S.shape[1]):
             next_mat_ind = self.dynamics(self.grid_index, action)
