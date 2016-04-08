@@ -797,12 +797,7 @@ def draw_gp_sample(kernel, world_shape, step_size):
         Step size along any axis to find linearly spaced points
     """
     # Compute linearly spaced grid
-    n, m = world_shape
-    step1, step2 = step_size
-    xx, yy = np.meshgrid(np.linspace(0, (n - 1) * step1, n),
-                         np.linspace(0, (m - 1) * step2, m),
-                         indexing="ij")
-    coord = np.vstack((xx.flatten(), yy.flatten())).T
+    coord = grid(world_shape, step_size)[1]
 
     # Draw a sample from GP
     cov = kernel.K(coord)
