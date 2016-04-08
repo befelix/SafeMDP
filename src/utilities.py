@@ -43,7 +43,7 @@ class DifferenceKernel(object):
             x10 = x1[:, :dim]
             x11 = x1[:, dim:]
             return (self.kern.K(x10) + self.kern.K(x11) -
-                    2 * self.kern.K(x10, x11))
+                    self.kern.K(x10, x11) - self.kern.K(x11, x10))
         else:
             x20 = x2[:, :dim]
             x21 = x2[:, dim:]
