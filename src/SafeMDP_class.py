@@ -1,5 +1,7 @@
 from __future__ import division, print_function
 
+from utilities import *
+
 import numpy as np
 import GPy
 import matplotlib.pyplot as plt
@@ -78,10 +80,8 @@ class SafeMDP(object):
         self.reach = np.empty_like(self.S, dtype=bool)
         self.ret = np.empty_like(self.S, dtype=bool)
         self.G = np.empty_like(self.S, dtype=bool)
-        if np.isnan(S_hat0):
-            self.S_hat = self.compute_S_hat0()
-        else:
-            self.S_hat = S_hat0
+
+        self.S_hat = S_hat0
         self.S_hat0 = self.S_hat.copy()
 
         # Set used to efficiently build the graph for the shortest path problem
@@ -544,46 +544,6 @@ class SafeMDP(object):
         self.S[:] = tmp
         return true_S_hat
 
-    def compute_S_hat0(self):
-        """
-        Compute a random initial safe seed. WARNING:  at the moment actions
-        for returning are not included
-
-        Returns
-        ------
-        S_hat: np.array
-            Boolean array n_states x (n_actions + 1).
-        """
-        # Initialize
-        safe = np.zeros(self.S.shape[1] - 1, dtype=bool)
-        S_hat = np.zeros_like(self.S, dtype=bool)
-
-        # Loop until you find a valid initial seed
-        while not np.any(safe):
-            # Pick random state
-            s = np.random.choice(self.coord.shape[0])
-
-            # Compute next state for every action and check safety of (s, a)
-            # pair
-            s_next = np.empty(self.S.shape[1] - 1, dtype=int)
-            for action in range(1, self.S.shape[1]):
-
-                s_next[action - 1] = mat2vec(
-                    self.dynamics(self.grid_index[s, :], action),
-                    self.world_shape).astype(int)
-                alt = self.altitudes[s]
-                alt_next = self.altitudes[s_next[action - 1]]
-
-                if s != (s_next[action - 1] and (alt - alt_next) /
-                         self.step_size[0] >= self.h):
-                    safe[action - 1] = True
-        # Set initial state, (s, a) pairs and arrival state as safe
-        s_next = s_next[safe]
-        S_hat[s, 0] = True
-        S_hat[s_next, 0] = True
-        S_hat[s, 1:] = safe
-        return S_hat
-
     def dynamics_vec_ind(self, states_vec_ind, action):
         """
         Dynamic evolution of the system defined in vector representation of
@@ -818,7 +778,7 @@ def manhattan_dist(a, b):
 if __name__ == "__main__":
     import time
 
-    mars = True
+    mars = False
 
     if mars:
         from osgeo import gdal
@@ -880,7 +840,8 @@ if __name__ == "__main__":
         # Initialize safe sets
         S0 = np.zeros((np.prod(world_shape), 5), dtype=bool)
         S0[:, 0] = True
-        S_hat0 = np.nan
+        S_hat0 = compute_S_hat0(2550, world_shape, 4, altitudes,
+                                step_size, h)
 
         # Initialize for performance
         lengthScale = np.linspace(6.5, 7., num=2)
@@ -911,7 +872,7 @@ if __name__ == "__main__":
 
             # Insert samples from (s, a) in S_hat0
             tmp = np.arange(x.coord.shape[0])
-            s_vec_ind = tmp[np.any(x.S_hat[:, 1:], axis=1)]
+            s_vec_ind = np.random.choice(tmp[np.any(x.S_hat[:, 1:], axis=1)])
             state = vec2mat(s_vec_ind, x.world_shape).T
             tmp = np.arange(1, x.S.shape[1])
             actions = tmp[x.S_hat[s_vec_ind, 1:].squeeze()]
@@ -997,7 +958,8 @@ if __name__ == "__main__":
         # Initialize safe sets
         S0 = np.zeros((np.prod(world_shape), 5), dtype=bool)
         S0[:, 0] = True
-        S_hat0 = np.nan
+        S_hat0 = compute_S_hat0(np.nan, world_shape, 4, altitudes,
+                                step_size, h)
 
         # Define SafeMDP object
         x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0,
@@ -1005,7 +967,7 @@ if __name__ == "__main__":
 
         # Insert samples from (s, a) in S_hat0
         tmp = np.arange(x.coord.shape[0])
-        s_vec_ind = tmp[np.any(x.S_hat[:, 1:], axis=1)]
+        s_vec_ind = np.random.choice(tmp[np.any(x.S_hat[:, 1:], axis=1)])
         state = vec2mat(s_vec_ind, x.world_shape).T
         tmp = np.arange(1, x.S.shape[1])
         actions = tmp[x.S_hat[s_vec_ind, 1:].squeeze()]
