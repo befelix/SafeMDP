@@ -61,7 +61,7 @@ class SafeMDP(object):
         self.noise = noise
 
         # Grids for the map
-        self.ind, self.coord = self.grid()
+        self.ind, self.coord = grid(self.world_shape, self.step_size)
 
         # Threshold
         self.h = h
@@ -105,29 +105,6 @@ class SafeMDP(object):
         # self.graph = nx.DiGraph()
         self.graph_lazy = nx.DiGraph()
         self.compute_graph_lazy()
-
-    def grid(self):
-        """
-        Creates grids of coordinates and indices of state space
-
-        Returns
-        -------
-        states_ind: np.array
-            (n*m) x 2 array containing the indices of the states
-        states_coord: np.array
-            (n*m) x 2 array containing the coordinates of the states
-        """
-        # Create grid of indices
-        n, m = self.world_shape
-        xx, yy = np.meshgrid(np.arange(n), np.arange(m), indexing="ij")
-        states_ind = np.vstack((xx.flatten(), yy.flatten())).T
-        # Grid of coordinates (used to compute Gram matrix)
-        step1, step2 = self.step_size
-        xx, yy = np.meshgrid(np.linspace(0, (n - 1) * step1, n),
-                             np.linspace(0, (m - 1) * step2, m),
-                             indexing="ij")
-        states_coord = np.vstack((xx.flatten(), yy.flatten())).T
-        return states_ind, states_coord
 
     def update_confidence_interval(self):
         """
@@ -686,6 +663,37 @@ class SafeMDP(object):
             end = self.ind[next_states_vec_ind[condition], :]
             self.graph_lazy.add_edges_from(zip(map(tuple, start),
                                                map(tuple, end)))
+
+
+def grid(world_shape, step_size):
+    """
+    Creates grids of coordinates and indices of state space
+
+    Parameters
+    ----------
+    world_shape: tuple
+        Size of the grid world (rows, columns)
+    step_size: tuple
+        Phyiscal step size in the grid world
+
+    Returns
+    -------
+    states_ind: np.array
+        (n*m) x 2 array containing the indices of the states
+    states_coord: np.array
+        (n*m) x 2 array containing the coordinates of the states
+    """
+    # Create grid of indices
+    n, m = world_shape
+    xx, yy = np.meshgrid(np.arange(n), np.arange(m), indexing="ij")
+    states_ind = np.vstack((xx.flatten(), yy.flatten())).T
+    # Grid of coordinates (used to compute Gram matrix)
+    step1, step2 = step_size
+    xx, yy = np.meshgrid(np.linspace(0, (n - 1) * step1, n),
+                         np.linspace(0, (m - 1) * step2, m),
+                         indexing="ij")
+    states_coord = np.vstack((xx.flatten(), yy.flatten())).T
+    return states_ind, states_coord
 
 
 def vec2mat(vec_ind, world_shape):
