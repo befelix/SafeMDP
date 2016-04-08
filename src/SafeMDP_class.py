@@ -8,7 +8,8 @@ import networkx as nx
 import os
 
 
-__all__ = ['SafeMDP', 'mat2vec', 'vec2mat', 'draw_gp_sample', 'manhattan_dist']
+__all__ = ['SafeMDP', 'mat2vec', 'vec2mat', 'draw_gp_sample', 'manhattan_dist',
+           'grid']
 
 
 class SafeMDP(object):
@@ -61,7 +62,7 @@ class SafeMDP(object):
         self.noise = noise
 
         # Grids for the map
-        self.ind, self.coord = grid(self.world_shape, self.step_size)
+        self.grid_index, self.coord = grid(self.world_shape, self.step_size)
 
         # Threshold
         self.h = h
@@ -350,7 +351,7 @@ class SafeMDP(object):
 
         self.compute_expanders()
 
-    def plot_S(self, S):
+    def plot_S(self, S, action=1):
         """
         Plot the set of safe states
 
@@ -359,13 +360,13 @@ class SafeMDP(object):
         S: np.array(dtype=bool)
             n_states x (n_actions + 1) array of boolean values that indicates
             the safe set
-
+        action: int
+            The action for which we want to plot the safe set.
         """
-        for action in range(1):
-            plt.figure(action)
-            plt.imshow(np.reshape(S[:, action], self.world_shape).T,
-                       origin="lower", interpolation="nearest")
-            plt.title("action " + str(action))
+        plt.figure(action)
+        plt.imshow(np.reshape(S[:, action], self.world_shape).T,
+                   origin="lower", interpolation="nearest")
+        plt.title("action " + str(action))
         plt.show()
 
     def add_observation(self, state_mat_ind, action):
@@ -492,7 +493,7 @@ class SafeMDP(object):
 
         # Compute safe (s, a) pairs
         for action in range(1, self.S.shape[1]):
-            next_mat_ind = self.dynamics(self.ind, action)
+            next_mat_ind = self.dynamics(self.grid_index, action)
             next_vec_ind = mat2vec(next_mat_ind, self.world_shape)
             true_safe[:, action] = ((self.altitudes -
                                      self.altitudes[next_vec_ind]) /
@@ -557,7 +558,7 @@ class SafeMDP(object):
         # Loop until you find a valid initial seed
         while not np.any(safe):
             # Pick random state
-            s = np.random.choice(self.ind.shape[0])
+            s = np.random.choice(self.grid_index.shape[0])
 
             # Compute next state for every action and check safety of (s, a)
             # pair
@@ -565,7 +566,7 @@ class SafeMDP(object):
             for action in range(1, self.S.shape[1]):
 
                 s_next[action - 1] = mat2vec(
-                    self.dynamics(self.ind[s, :], action),
+                    self.dynamics(self.grid_index[s, :], action),
                     self.world_shape).astype(int)
                 alt = self.altitudes[s]
                 alt_next = self.altitudes[s_next[action - 1]]
@@ -659,8 +660,8 @@ class SafeMDP(object):
             condition = self.S_hat[next_states_vec_ind, 0]
 
             # Add edges to graph
-            start = self.ind[safe_states_vec_ind[condition], :]
-            end = self.ind[next_states_vec_ind[condition], :]
+            start = self.grid_index[safe_states_vec_ind[condition], :]
+            end = self.grid_index[next_states_vec_ind[condition], :]
             self.graph_lazy.add_edges_from(zip(map(tuple, start),
                                                map(tuple, end)))
 
@@ -875,7 +876,7 @@ if __name__ == "__main__":
                         S_hat0, noise, L)
 
             # Insert samples from (s, a) in S_hat0
-            tmp = np.arange(x.ind.shape[0])
+            tmp = np.arange(x.grid_index.shape[0])
             s_vec_ind = tmp[np.any(x.S_hat[:, 1:], axis=1)]
             state = vec2mat(s_vec_ind, x.world_shape).T
             tmp = np.arange(1, x.S.shape[1])
@@ -969,7 +970,7 @@ if __name__ == "__main__":
                     noise, L)
 
         # Insert samples from (s, a) in S_hat0
-        tmp = np.arange(x.ind.shape[0])
+        tmp = np.arange(x.grid_index.shape[0])
         s_vec_ind = tmp[np.any(x.S_hat[:, 1:], axis=1)]
         state = vec2mat(s_vec_ind, x.world_shape).T
         tmp = np.arange(1, x.S.shape[1])
