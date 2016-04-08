@@ -9,7 +9,7 @@ import os
 
 
 __all__ = ['SafeMDP', 'mat2vec', 'vec2mat', 'draw_gp_sample', 'manhattan_dist',
-           'grid']
+           'grid', 'states_to_grid', 'grid_to_states']
 
 
 class SafeMDP(object):
@@ -558,7 +558,7 @@ class SafeMDP(object):
         # Loop until you find a valid initial seed
         while not np.any(safe):
             # Pick random state
-            s = np.random.choice(self.grid_index.shape[0])
+            s = np.random.choice(self.coord.shape[0])
 
             # Compute next state for every action and check safety of (s, a)
             # pair
@@ -907,7 +907,7 @@ if __name__ == "__main__":
                         S_hat0, noise, L)
 
             # Insert samples from (s, a) in S_hat0
-            tmp = np.arange(x.grid_index.shape[0])
+            tmp = np.arange(x.coord.shape[0])
             s_vec_ind = tmp[np.any(x.S_hat[:, 1:], axis=1)]
             state = vec2mat(s_vec_ind, x.world_shape).T
             tmp = np.arange(1, x.S.shape[1])
@@ -1001,7 +1001,7 @@ if __name__ == "__main__":
                     noise, L)
 
         # Insert samples from (s, a) in S_hat0
-        tmp = np.arange(x.grid_index.shape[0])
+        tmp = np.arange(x.coord.shape[0])
         s_vec_ind = tmp[np.any(x.S_hat[:, 1:], axis=1)]
         state = vec2mat(s_vec_ind, x.world_shape).T
         tmp = np.arange(1, x.S.shape[1])
