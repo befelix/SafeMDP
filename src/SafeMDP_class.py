@@ -19,15 +19,19 @@ class SafeMDP(object):
         ----------
 
         gp: GPy.core.GP
-            Gaussian process that expresses our current belief over the safety feature
+            Gaussian process that expresses our current belief over the safety
+            feature
         world_shape: shape
                      Tuple that contains the shape of the grid world n x m
         step_size: tuple of floats
-                   Tuple that contains the step sizes along each direction to create a linearly spaced grid
+                   Tuple that contains the step sizes along each direction to
+                   create a linearly spaced grid
         beta: float
-              Scaling factor to determine the amplitude of the confidence intervals
+              Scaling factor to determine the amplitude of the confidence
+              intervals
         altitudes: np.array
-                   It contains the flattened n x m matrix where the altitudes of all the points in the map are stored
+                   It contains the flattened n x m matrix where the altitudes
+                   of all the points in the map are stored
         h: float
            Safety threshold
         S0: np.array
@@ -39,7 +43,8 @@ class SafeMDP(object):
             n_states x (n_actions + 1) array of booleans that indicates which
             states (first column) and which state-action pairs belong to the
             initial safe seed and satisfy recovery and reachability properties.
-            If it is nan, such a boolean matrix is computed during initialization
+            If it is nan, such a boolean matrix is computed during
+            initialization
         noise: float
                Standard deviation of the measurement noise
         L: float
