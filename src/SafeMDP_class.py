@@ -666,6 +666,46 @@ class SafeMDP(object):
                                                map(tuple, end)))
 
 
+def states_to_grid(states, step_size):
+    """Convert physical states to the grid_world.
+
+    Parameters
+    ----------
+    states: np.array
+        States with physical coordinates
+    step_size: np.array
+        The step size of the grid world
+
+    Returns
+    -------
+    grid_indices: np.array
+        The grid indices of the states
+    """
+    states = np.asanyarray(states)
+    step_size = np.asanyarray(step_size)
+    return np.rint(states / step_size).astype(np.int)
+
+
+def grid_to_states(grid_indices, step_size):
+    """Convert grid indices to physical states.
+
+    Parameters
+    ----------
+    grid_indices = np.array
+        Indices of the grid world
+    step_size: np.array
+        Teh step size of the grid world
+
+    Returns
+    -------
+    states: np.array
+        The states in physical coordinates
+    """
+    grid_indices = np.asanyarray(grid_indices)
+    step_size = np.asanyarray(step_size)
+    return grid_indices * step_size
+
+
 def grid(world_shape, step_size):
     """
     Creates grids of coordinates and indices of state space
@@ -686,15 +726,11 @@ def grid(world_shape, step_size):
     """
     # Create grid of indices
     n, m = world_shape
-    xx, yy = np.meshgrid(np.arange(n), np.arange(m), indexing="ij")
+    xx, yy = np.meshgrid(np.arange(n),
+                         np.arange(m),
+                         indexing='ij')
     states_ind = np.vstack((xx.flatten(), yy.flatten())).T
-    # Grid of coordinates (used to compute Gram matrix)
-    step1, step2 = step_size
-    xx, yy = np.meshgrid(np.linspace(0, (n - 1) * step1, n),
-                         np.linspace(0, (m - 1) * step2, m),
-                         indexing="ij")
-    states_coord = np.vstack((xx.flatten(), yy.flatten())).T
-    return states_ind, states_coord
+    return states_ind, grid_to_states(states_ind, step_size)
 
 
 def vec2mat(vec_ind, world_shape):
