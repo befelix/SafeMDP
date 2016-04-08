@@ -3,7 +3,10 @@ from __future__ import division
 import numpy as np
 
 
-class DiffKernel(object):
+__all__ = ['DifferenceKernel']
+
+
+class DifferenceKernel(object):
     """
     A fake kernel that can be used to predict differences two function values.
 

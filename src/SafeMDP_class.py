@@ -1,10 +1,14 @@
 from __future__ import division, print_function
+
 import numpy as np
 import GPy
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import cdist
 import networkx as nx
 import os
+
+
+__all__ = ['SafeMDP', 'mat2vec', 'vec2mat', 'draw_gp_sample', 'manhattan_dist']
 
 
 class SafeMDP(object):
