@@ -351,7 +351,7 @@ class SafeMDP(object):
 
         self.compute_expanders()
 
-    def plot_S(self, S, action=1):
+    def plot_S(self, S, action=0):
         """
         Plot the set of safe states
 
@@ -778,7 +778,7 @@ def manhattan_dist(a, b):
 if __name__ == "__main__":
     import time
 
-    mars = False
+    mars = True
 
     if mars:
         from osgeo import gdal
