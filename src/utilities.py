@@ -12,9 +12,9 @@ class DifferenceKernel(object):
 
     Given a gp based on measurements, we aim to predict the difference between
     the function values at two different test points, X1 and X2; that is, we
-    want to obtain mean and variance of f(X1) - f(X1). Using this fake
+    want to obtain mean and variance of f(X1) - f(X2). Using this fake
     kernel, this can be achieved with
-    `mean, var = gp.predict(np.vstack((X1, X2)), kern=DiffKernel(gp.kern))`
+    `mean, var = gp.predict(np.hstack((X1, X2)), kern=DiffKernel(gp.kern))`
 
     Parameters
     ----------
