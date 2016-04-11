@@ -235,25 +235,30 @@ def reachable_set(graph, initial_nodes, safe, out=None):
         raise AttributeError('Set of initial nodes needs to be non-empty.')
 
     if out is None:
-        visited = np.zeros(graph.number_of_nodes(), dtype=np.bool)
+        visited = np.zeros((graph.number_of_nodes(),
+                            max_out_degree(graph) + 1),
+                           dtype=np.bool)
     else:
         visited = out
 
     # All nodes in the initial set are visited
-    visited[initial_nodes] = True
+    visited[initial_nodes, 0] = True
 
-    stack = initial_nodes
+    stack = list(initial_nodes)
 
     # TODO: rather than checking if things are safe, specify a safe subgraph?
     while stack:
         node = stack.pop(0)
         # iterate over edges going away from node
         for _, next_node, data in graph.edges_iter(node, data=True):
-            if (not visited[next_node] and
-                    safe[node, data['action']] and
+            action = data['action']
+            if (not visited[node, action] and
+                    safe[node, action] and
                     safe[next_node, 0]):
-                stack.append(next_node)
-                visited[next_node] = True
+                visited[node, action] = True
+                if not visited[next_node, 0]:
+                    stack.append(next_node)
+                    visited[next_node, 0] = True
     if out is None:
         return visited
 

@@ -122,13 +122,13 @@ class ReachableSetTest(unittest.TestCase):
         self.graph.add_edges_from([(0, 1),
                                    (1, 2),
                                    (2, 0),
-                                   (2, 3),
                                    (4, 1)], action=1)
+        self.graph.add_edge(2, 3, action=2)
 
         self.safe_set = np.ones((self.graph.number_of_nodes(),
                                  max_out_degree(self.graph) + 1),
                                 dtype=np.bool)
-        self.true = np.array([1, 1, 1, 1, 0], dtype=np.bool)
+        self.true = np.zeros(self.safe_set.shape[0], dtype=np.bool)
 
     def setUp(self):
         self.safe_set[:] = True
@@ -137,49 +137,44 @@ class ReachableSetTest(unittest.TestCase):
         if graph is None:
             graph = self.graph
         reach = reachable_set(graph, [0], self.safe_set)
-        assert_equal(reach, self.true)
+        assert_equal(reach[:, 0], self.true)
 
     def test_all_safe(self):
         """Test reachable set if everything is safe"""
         self.true[:] = [1, 1, 1, 1, 0]
         self._check()
 
-    def test_all_safe_inverse(self):
-        """Test reachable set on inverse graph if everything is safe"""
-        self.true[:] = [1, 1, 1, 0, 1]
-        self._check(graph=self.graph.reverse())
-
     def test_unsafe1(self):
         """Test safety aspect"""
-        self.safe_set[1] = False
+        self.safe_set[1, 0] = False
         self.true[:] = [1, 0, 0, 0, 0]
         self._check()
 
     def test_unsafe2(self):
         """Test safety aspect"""
-        self.safe_set[2] = False
+        self.safe_set[2, 0] = False
         self.true[:] = [1, 1, 0, 0, 0]
         self._check()
 
     def test_unsafe3(self):
         """Test safety aspect"""
-        self.safe_set[3] = False
+        self.safe_set[3, 0] = False
         self.true[:] = [1, 1, 1, 0, 0]
         self._check()
 
     def test_unsafe4(self):
         """Test safety aspect"""
-        self.safe_set[4] = False
+        self.safe_set[4, 0] = False
         self.true[:] = [1, 1, 1, 1, 0]
         self._check()
 
     def test_out(self):
         """Test writing the output"""
-        self.safe_set[3] = False
+        self.safe_set[3, 0] = False
         self.true[:] = [1, 1, 1, 0, 0]
-        out = np.zeros_like(self.true)
+        out = np.zeros_like(self.safe_set)
         reachable_set(self.graph, [0], self.safe_set, out=out)
-        assert_equal(out, self.true)
+        assert_equal(out[:, 0], self.true)
 
     def test_error(self):
         """Check error condition"""
