@@ -5,8 +5,8 @@ import networkx as nx
 
 
 __all__ = ['DifferenceKernel', 'compute_S_hat0', 'reverse_action',
-           'dynamics_vec_ind', 'reachable_set', 'max_out_degree',
-           'grid_world_graph']
+           'dynamics_vec_ind', 'reachable_set', 'returnable_set',
+           'max_out_degree', 'grid_world_graph']
 
 
 class DifferenceKernel(object):
