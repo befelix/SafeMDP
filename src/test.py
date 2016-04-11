@@ -3,9 +3,10 @@ from __future__ import division, print_function, absolute_import
 import unittest
 import GPy
 import numpy as np
+import networkx as nx
 from numpy.testing import *
 
-from .utilities import DifferenceKernel
+from .utilities import DifferenceKernel, max_out_degree
 
 
 class DifferenceKernelTest(unittest.TestCase):
@@ -80,6 +81,29 @@ class DifferenceKernelTest(unittest.TestCase):
                              np.linspace(0., 0.1, n)[::-1, None]))
 
         self._check(gp, x1, x2)
+
+
+class MaxOutDegreeTest(unittest.TestCase):
+    def test_all(self):
+        """Test the max_out_degree function."""
+        graph = nx.DiGraph()
+        graph.add_edges_from(((0, 1),
+                              (1, 2),
+                              (2, 3),
+                              (3, 1)))
+        assert_(max_out_degree(graph), 1)
+
+        graph.add_edge(0, 2)
+        assert_(max_out_degree(graph), 2)
+
+        graph.add_edge(2, 3)
+        assert_(max_out_degree(graph), 2)
+
+        graph.add_edge(3, 2)
+        assert_(max_out_degree(graph), 2)
+
+        graph.add_edge(3, 1)
+        assert_(max_out_degree(graph), 3)
 
 
 if __name__ == '__main__':

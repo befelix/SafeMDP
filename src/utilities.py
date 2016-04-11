@@ -182,3 +182,21 @@ def dynamics_vec_ind(states_vec_ind, action, world_shape):
     else:
         raise ValueError("Unknown action")
     return next_states_vec_ind
+
+
+def max_out_degree(graph):
+    """Compute the maximum out_degree of a graph
+
+    Parameters
+    ----------
+    graph: nx.DiGraph
+
+    Returns
+    -------
+    max_out_degree: int
+        The maximum out_degree of the graph
+    """
+    def degree_generator(graph):
+        for _, degree in graph.out_degree_iter():
+            yield degree
+    return max(degree_generator(graph))
