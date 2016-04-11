@@ -200,3 +200,51 @@ def max_out_degree(graph):
         for _, degree in graph.out_degree_iter():
             yield degree
     return max(degree_generator(graph))
+
+
+def reachable_set(graph, initial_nodes, safe):
+    """
+    Compute the safe, reachable set of a graph
+
+    Parameters
+    ----------
+    graph: nx.DiGraph
+        Directed graph. Each edge must have associated action metadata,
+        which specifies the action that this edge corresponds to.
+    initial_nodes: list
+        List of the initial, safe nodes that are used as a starting point to
+        compute the reachable set.
+    safe: np.array
+        Boolean array which on element (i,j) indicates whether taking
+        action j at node i is safe.
+        i=0 is interpreted as the node without taking an action.
+
+    Returns
+    -------
+    reachable_set: np.array
+        Boolean array that indicates whether a node belongs to the reachable
+        set.
+    """
+
+    if not initial_nodes:
+        raise AttributeError('Set of initial nodes needs to be non-empty.')
+
+    visited = np.zeros(graph.number_of_nodes(), dtype=np.bool)
+
+    # All nodes in the initial set are visited
+    visited[initial_nodes] = True
+
+    stack = initial_nodes
+
+    # TODO: rather than checking if things are safe, specify a safe subgraph?
+    while stack:
+        node = stack.pop(0)
+        # iterate over edges going away from node
+        for _, next_node, data in graph.edges_iter(node, data=True):
+            if (not visited[next_node] and
+                    safe[node, data['action']] and
+                    safe[next_node, 0]):
+                stack.append(next_node)
+                visited[next_node] = True
+    return visited
+

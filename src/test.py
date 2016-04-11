@@ -6,7 +6,7 @@ import numpy as np
 import networkx as nx
 from numpy.testing import *
 
-from .utilities import DifferenceKernel, max_out_degree
+from .utilities import DifferenceKernel, max_out_degree, reachable_set
 
 
 class DifferenceKernelTest(unittest.TestCase):
@@ -104,6 +104,78 @@ class MaxOutDegreeTest(unittest.TestCase):
 
         graph.add_edge(3, 1)
         assert_(max_out_degree(graph), 3)
+
+
+class ReachableSetTest(unittest.TestCase):
+
+    def __init__(self, *args, **kwargs):
+        super(ReachableSetTest, self).__init__(*args, **kwargs)
+        #             3
+        #             ^
+        #             |
+        # 0 --> 1 --> 2 --> 0
+        #       ^
+        #       |
+        #       4
+        self.graph = nx.DiGraph()
+        self.graph.add_edges_from([(0, 1),
+                                   (1, 2),
+                                   (2, 0),
+                                   (2, 3),
+                                   (4, 1)], action=1)
+
+        self.safe_set = np.ones((self.graph.number_of_nodes(),
+                                 max_out_degree(self.graph) + 1),
+                                dtype=np.bool)
+        self.true = np.array([1, 1, 1, 1, 0], dtype=np.bool)
+
+    def setUp(self):
+        self.safe_set[:] = True
+
+    def _check(self, graph=None):
+        if graph is None:
+            graph = self.graph
+        reach = reachable_set(graph, [0], self.safe_set)
+        assert_equal(reach, self.true)
+
+    def test_all_safe(self):
+        """Test reachable set if everything is safe"""
+        self.true[:] = [1, 1, 1, 1, 0]
+        self._check()
+
+    def test_all_safe_inverse(self):
+        """Test reachable set on inverse graph if everything is safe"""
+        self.true[:] = [1, 1, 1, 0, 1]
+        self._check(graph=self.graph.reverse())
+
+    def test_unsafe1(self):
+        """Test safety aspect"""
+        self.safe_set[1] = False
+        self.true[:] = [1, 0, 0, 0, 0]
+        self._check()
+
+    def test_unsafe2(self):
+        """Test safety aspect"""
+        self.safe_set[2] = False
+        self.true[:] = [1, 1, 0, 0, 0]
+        self._check()
+
+    def test_unsafe3(self):
+        """Test safety aspect"""
+        self.safe_set[3] = False
+        self.true[:] = [1, 1, 1, 0, 0]
+        self._check()
+
+    def test_unsafe4(self):
+        """Test safety aspect"""
+        self.safe_set[4] = False
+        self.true[:] = [1, 1, 1, 1, 0]
+        self._check()
+
+    def test_error(self):
+        """Check error condition"""
+        with assert_raises(AttributeError):
+            reachable_set(self.graph, [], self.safe_set)
 
 
 if __name__ == '__main__':
