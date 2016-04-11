@@ -1,6 +1,7 @@
 from __future__ import division
 
 import numpy as np
+import networkx as nx
 
 
 __all__ = ['DifferenceKernel', 'compute_S_hat0', 'reverse_action',
@@ -248,3 +249,48 @@ def reachable_set(graph, initial_nodes, safe):
                 visited[next_node] = True
     return visited
 
+
+def grid_world_graph(world_size):
+    """Create a graph that represents a grid world.
+
+    In the grid world there are four actions, (1, 2, 3, 4), which correspond
+    to going (right, down, left, up) on the grid. The states are ordered so
+    that `np.arange(np.prod(world_size)).reshape(world_size)` corresponds to
+    a matrix where each
+
+    Parameters
+    ----------
+    world_size: tuple
+        The size of the grid world (rows, columns)
+
+    Returns
+    -------
+    graph: nx.DiGraph()
+        The directed graph representing the grid world.
+    """
+    nodes = np.arange(np.prod(world_size))
+    grid_nodes = nodes.reshape(world_size)
+
+    graph = nx.DiGraph()
+
+    # action 1: go right
+    graph.add_edges_from(zip(grid_nodes[:, :-1].reshape(-1),
+                             grid_nodes[:, 1:].reshape(-1)),
+                         action=1)
+
+    # action 2: go down
+    graph.add_edges_from(zip(grid_nodes[:-1, :].reshape(-1),
+                             grid_nodes[1:, :].reshape(-1)),
+                         action=2)
+
+    # action 3: go left
+    graph.add_edges_from(zip(grid_nodes[:, 1:].reshape(-1),
+                             grid_nodes[:, :-1].reshape(-1)),
+                         action=3)
+
+    # action 4: go up
+    graph.add_edges_from(zip(grid_nodes[1:, :].reshape(-1),
+                             grid_nodes[:-1, :].reshape(-1)),
+                         action=4)
+
+    return graph

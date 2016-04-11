@@ -6,7 +6,8 @@ import numpy as np
 import networkx as nx
 from numpy.testing import *
 
-from .utilities import DifferenceKernel, max_out_degree, reachable_set
+from .utilities import (DifferenceKernel, max_out_degree, reachable_set,
+                        grid_world_graph)
 
 
 class DifferenceKernelTest(unittest.TestCase):
@@ -176,6 +177,37 @@ class ReachableSetTest(unittest.TestCase):
         """Check error condition"""
         with assert_raises(AttributeError):
             reachable_set(self.graph, [], self.safe_set)
+
+
+class GridWorldGraphTest(unittest.TestCase):
+    """Test the grid_world_graph function."""
+
+    def test(self):
+        """Simple test"""
+        # 1 2 3
+        # 4 5 6
+        graph = grid_world_graph((2, 3))
+        graph_true = nx.DiGraph()
+        graph_true.add_edges_from(((1, 2),
+                                   (2, 3),
+                                   (4, 5),
+                                   (5, 6)),
+                                  action=1)
+        graph_true.add_edges_from(((1, 4),
+                                   (2, 5),
+                                   (3, 6)),
+                                  action=2)
+        graph_true.add_edges_from(((2, 1),
+                                   (3, 2),
+                                   (5, 4),
+                                   (6, 5)),
+                                  action=3)
+        graph_true.add_edges_from(((4, 1),
+                                   (5, 2),
+                                   (6, 3)),
+                                  action=4)
+
+        assert_(nx.is_isomorphic(graph, graph_true))
 
 
 if __name__ == '__main__':
