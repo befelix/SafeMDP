@@ -173,6 +173,14 @@ class ReachableSetTest(unittest.TestCase):
         self.true[:] = [1, 1, 1, 1, 0]
         self._check()
 
+    def test_out(self):
+        """Test writing the output"""
+        self.safe_set[3] = False
+        self.true[:] = [1, 1, 1, 0, 0]
+        out = np.zeros_like(self.true)
+        reachable_set(self.graph, [0], self.safe_set, out=out)
+        assert_equal(out, self.true)
+
     def test_error(self):
         """Check error condition"""
         with assert_raises(AttributeError):

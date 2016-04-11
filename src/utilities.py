@@ -204,7 +204,7 @@ def max_out_degree(graph):
     return max(degree_generator(graph))
 
 
-def reachable_set(graph, initial_nodes, safe):
+def reachable_set(graph, initial_nodes, safe, out=None):
     """
     Compute the safe, reachable set of a graph
 
@@ -220,6 +220,9 @@ def reachable_set(graph, initial_nodes, safe):
         Boolean array which on element (i,j) indicates whether taking
         action j at node i is safe.
         i=0 is interpreted as the node without taking an action.
+    out: np.array
+        The array to write the results to. Is assumed to be False everywhere
+        except at the initial nodes
 
     Returns
     -------
@@ -231,7 +234,10 @@ def reachable_set(graph, initial_nodes, safe):
     if not initial_nodes:
         raise AttributeError('Set of initial nodes needs to be non-empty.')
 
-    visited = np.zeros(graph.number_of_nodes(), dtype=np.bool)
+    if out is None:
+        visited = np.zeros(graph.number_of_nodes(), dtype=np.bool)
+    else:
+        visited = out
 
     # All nodes in the initial set are visited
     visited[initial_nodes] = True
@@ -248,7 +254,8 @@ def reachable_set(graph, initial_nodes, safe):
                     safe[next_node, 0]):
                 stack.append(next_node)
                 visited[next_node] = True
-    return visited
+    if out is None:
+        return visited
 
 
 def grid_world_graph(world_size):
