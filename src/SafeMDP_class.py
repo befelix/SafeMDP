@@ -11,7 +11,7 @@ import os
 
 
 __all__ = ['SafeMDP', 'mat2vec', 'vec2mat', 'draw_gp_sample', 'manhattan_dist',
-           'grid', 'states_to_grid', 'grid_to_states']
+           'grid', 'states_to_nodes', 'nodes_to_states']
 
 
 class SafeMDP(object):
@@ -629,8 +629,8 @@ class SafeMDP(object):
                                                map(tuple, end)))
 
 
-def states_to_grid(states, step_size):
-    """Convert physical states to the grid_world.
+def states_to_nodes(states, step_size):
+    """Convert physical states to node numbers.
 
     Parameters
     ----------
@@ -641,21 +641,21 @@ def states_to_grid(states, step_size):
 
     Returns
     -------
-    grid_indices: np.array
-        The grid indices of the states
+    nodes: np.array
+        The node indices corresponding to the states
     """
     states = np.asanyarray(states)
     step_size = np.asanyarray(step_size)
     return np.rint(states / step_size).astype(np.int)
 
 
-def grid_to_states(grid_indices, step_size):
-    """Convert grid indices to physical states.
+def nodes_to_states(nodes, step_size):
+    """Convert node numbers to physical states.
 
     Parameters
     ----------
-    grid_indices = np.array
-        Indices of the grid world
+    nodes = np.array
+        Node indices of the grid world
     step_size: np.array
         Teh step size of the grid world
 
@@ -664,9 +664,9 @@ def grid_to_states(grid_indices, step_size):
     states: np.array
         The states in physical coordinates
     """
-    grid_indices = np.asanyarray(grid_indices)
+    nodes = np.asanyarray(nodes)
     step_size = np.asanyarray(step_size)
-    return grid_indices * step_size
+    return nodes * step_size
 
 
 def grid(world_shape, step_size):
@@ -693,7 +693,7 @@ def grid(world_shape, step_size):
                          np.arange(m),
                          indexing='ij')
     states_ind = np.vstack((xx.flatten(), yy.flatten())).T
-    return states_ind, grid_to_states(states_ind, step_size)
+    return states_ind, nodes_to_states(states_ind, step_size)
 
 
 def vec2mat(vec_ind, world_shape):
