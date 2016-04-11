@@ -83,9 +83,7 @@ class SafeMDP(object):
 
         self.S_hat = S_hat0
         self.S_hat0 = self.S_hat.copy()
-
-        # Set used to efficiently build the graph for the shortest path problem
-        self.S_hat_old = np.zeros_like(self.S_hat, dtype=bool)
+        self.initial_nodes = self.S_hat0[:, 0].nonzero()[0].tolist()
 
         # Target
         self.target_state = np.empty(2, dtype=int)
@@ -98,14 +96,8 @@ class SafeMDP(object):
         self.u[:] = np.inf
         self.l[self.S] = h
 
-        # True sets
-        self.true_S = self.compute_true_safe_set()
-        self.true_S_hat = self.compute_true_S_hat()
-
-        # Graph for shortest path
-        # self.graph = nx.DiGraph()
-        self.graph_lazy = nx.DiGraph()
-        self.compute_graph_lazy()
+        self.graph = grid_world_graph(self.world_shape)
+        self.graph_reverse = self.graph.reverse()
 
     def update_confidence_interval(self):
         """
@@ -136,169 +128,6 @@ class SafeMDP(object):
         self.u[:, [1, 2]] = -mu[:, ::-1] + s[:, ::-1]
         self.u[:, [3, 4]] = mu[:, ::-1] + s[:, ::-1]
 
-    def boolean_dynamics(self, bool_mat, action):
-        """
-        Given a boolean array over the state space, it shifts all the boolean
-        values according to the dynamics of the system using the action
-        provided as input. For example, if true entries of bool_mat indicate
-        the safe states, boolean dynamics returns an array whose true entries
-        indicate states that can be reached from the safe set with action =
-        action
-
-        Parameters
-        ----------
-        bool_mat: np.array
-            n_states x 1 array of booleans indicating which initial states
-            satisfy a given property
-        action: int
-            action we want to compute the dynamics with
-
-        Returns
-        -------
-        return: np.array
-            n_states x 1 array of booleans. If the entry in boolean_mat in
-            input is equal to true for a state s, the output will have then
-            entry corresponding to f(s, action) set to true (f represents the
-            dynamics of the system)
-        """
-        start = bool_mat.reshape(self.world_shape).copy()
-        end = bool_mat.reshape(self.world_shape).copy()
-
-        if action == 1:  # moves right by one column
-            end[:, 1:] = start[:, 0:-1]
-            end[:, -1] = np.logical_or(end[:, -1], start[:, -1])
-            end[:, 0] = False
-
-        elif action == 2:  # moves down by one row
-            end[1:, :] = start[0:-1, :]
-            end[-1, :] = np.logical_or(end[-1, :], start[-1, :])
-            end[0, :] = False
-
-        elif action == 3:  # moves left by one column
-            end[:, 0:-1] = start[:, 1:]
-            end[:, 0] = np.logical_or(end[:, 0], start[:, 0])
-            end[:, -1] = False
-
-        elif action == 4:  # moves up by one row
-            end[0:-1, :] = start[1:, :]
-            end[0, :] = np.logical_or(end[0, :], start[0, :])
-            end[-1, :] = False
-
-        else:
-            raise ValueError("Unknown action")
-        return np.reshape(end, (np.prod(self.world_shape)))
-
-    def update_reachable_set(self):
-        """
-        computes the union of the points in self.reach and the points that are
-        reachable in one time step from self.reach and that are above safety
-        threshold
-
-        Returns
-        -------
-        changed: bool
-            Indicates whether self.reach and the newly computed set are
-            different or not
-        """
-
-        # Initialize
-        reachable_from_reach = self.reach.copy()
-
-        # If s is safe, then (s, a) is safe for all a    s -> (s,a)
-        reachable_from_reach[self.reach[:, 0], 1:] =\
-            self.S[self.reach[:, 0], 1:]
-
-        # If (s, a) is safe and reachable, then add s' to the reachable set
-        for action in range(1, self.S.shape[1]):
-            reachable_from_reach[:, 0] |= self.boolean_dynamics(
-                self.reach[:, action],
-                action)
-
-        # But only if s' is safe
-        reachable_from_reach[:, 0] &= self.S[:, 0]
-
-        changed = np.any(self.reach != reachable_from_reach)
-        self.reach = reachable_from_reach
-        return changed
-
-    def boolean_inverse_dynamics(self, bool_mat, action):
-        """
-        Similar to boolean dynamics. The difference is that here the
-        boolean_mat input indicates the arrival states that satisfy a given
-        property and the function returns the initial states from which the
-        arrival state can be reached applying the action input.
-
-        Parameters
-        ----------
-        bool_mat: np.array
-                  n_states x 1 array of booleans indicating which arrival
-                  states satisfy a given property
-        action: int
-                action we want to compute the inverse dynamics with
-
-        Returns
-        -------
-        return: np.array
-                n_states x 1 array of booleans. If the entry in the output
-                is set to true for a state s, the input boolean_mat has the
-                entry corresponding to f(s, action) equal to true
-                (f represents the dynamics of the system)
-        """
-        start = bool_mat.reshape(self.world_shape).copy()
-        end = bool_mat.reshape(self.world_shape).copy()
-
-        if action == 3:  # moves right by one column
-            start[:, 1:] = end[:, 0:-1]
-            start[:, 0] = end[:, 0]
-
-        elif action == 4:  # moves down by one row
-            start[1:, :] = end[0:-1, :]
-            start[0, :] = end[0, :]
-
-        elif action == 1:  # moves left by one column
-            start[:, 0:-1] = end[:, 1:]
-            start[:, -1] = end[:, -1]
-
-        elif action == 2:  # moves up by one row
-            start[0:-1, :] = end[1:, :]
-            start[-1, :] = end[-1, :]
-
-        else:
-            raise ValueError("Unknown action")
-        return np.reshape(start, (np.prod(self.world_shape)))
-
-    def update_return_set(self):
-        """
-        computes the union of the points in self.ret and the points from which
-        it is possible to recover to self.ret and that are above safety
-        threshold
-
-        Returns
-        -------
-        changed: bool
-            Indicates whether self.ret and the newly computed set are
-            different or not
-        """
-
-        # Initialize
-        recover_to_ret = self.ret.copy()
-
-        # A state is part of the return set if any of the associated
-        # actions are in ret. (s in S to (s, a))
-        safe_states = self.S[:, 0]
-        recover_to_ret[safe_states, 0] |= np.any(self.ret[safe_states, 1:],
-                                                 axis=1)
-
-        # From (s,a) in S to s in ret
-        for action in range(1, self.S.shape[1]):
-            recover_to_ret[:, action] |= np.logical_and(
-                self.S[:, action],
-                self.boolean_inverse_dynamics(self.ret[:, 0], action))
-
-        changed = np.any(self.ret != recover_to_ret)
-        self.ret = recover_to_ret
-        return changed
-
     def compute_expanders(self):
         """Compute the expanders based on the current estimate of S_hat."""
         self.G[:] = False
@@ -323,31 +152,12 @@ class SafeMDP(object):
         self.update_confidence_interval()
         self.S = self.l >= self.h
 
-        # Reshape to array where the first index corresponds to the action
-        n, m = self.world_shape
-        S_grid = self.S.T.reshape((-1, n, m))
+        self.reach[:] = False
+        reachable_set(self.graph, self.initial_nodes, self.S, out=self.reach)
 
-        # Actions that takes agent out of boundaries are assumed to be unsafe
-        # order (right, bottom, left, top)
-        S_grid[1, :, -1] = False
-        S_grid[2, -1, :] = False
-        S_grid[3, :, 0] = False
-        S_grid[4, 0, :] = False
-
-        # Reachable states and return states start from original S_hat
-        # This is needed because we don't intersect confidence intervals here.
-        self.reach[:] = self.S_hat0
-        self.ret[:] = self.S_hat0
-
-        # Iteratively update sets
-        while self.update_reachable_set():
-            pass
-        while self.update_return_set():
-            pass
-
-        # Update safe set
-        self.S_hat_old[:] = self.S_hat
-        self.S_hat = np.logical_and(self.reach, self.ret)
+        self.S_hat[:] = False
+        returnable_set(self.graph, self.graph_reverse, self.initial_nodes,
+                       self.reach, out=self.S_hat)
 
         self.compute_expanders()
 
@@ -365,7 +175,7 @@ class SafeMDP(object):
         """
         plt.figure(action)
         plt.imshow(np.reshape(S[:, action], self.world_shape).T,
-                   origin="lower", interpolation="nearest")
+                   origin="lower", interpolation="nearest", vmin=0, vmax=1)
         plt.title("action " + str(action))
         plt.show()
 
@@ -382,7 +192,6 @@ class SafeMDP(object):
         action: int
             action of the target state action pair
         """
-
         # Observation of previous state
         state_vec_ind = mat2vec(state_mat_ind, self.world_shape)
         obs_state = self.altitudes[state_vec_ind]
@@ -429,8 +238,11 @@ class SafeMDP(object):
             # Find   max uncertainty
             max_id = np.argmax(w)
 
+        # self.target_state = expander_id[0][max_id]
+        # self.target_action = expander_id[1][max_id]
+        # return expander_id[0][max_id], expander_id[1][max_id]
         state = expander_id[0][max_id]
-        # Store (s, a) pair
+        # # Store (s, a) pair
         self.target_state[:] = vec2mat(state, self.world_shape)
         self.target_action = expander_id[1][max_id]
 
@@ -585,49 +397,6 @@ class SafeMDP(object):
             raise ValueError("Unknown action")
         return next_states_vec_ind
 
-    # def compute_graph(self):
-    #     states_vec_ind = np.arange(self.S_hat.shape[0])
-    #
-    #     for action in range(1, self.S_hat.shape[1]):
-    #
-    #         # States where is safe to apply action = action
-    #         safe_states_vec_ind = states_vec_ind[self.S_hat[:, action]]
-    #
-    #         # Resulting states when applying action at safe_states_vec_ind
-    #         next_states_vec_ind = self.dynamics_vec_ind(
-    # safe_states_vec_ind, action)
-    #
-    #         # Resulting states that are also safe
-    #         condition = self.S_hat[next_states_vec_ind, 0]
-    #
-    #         # Add edges to graph
-    #         start = self.ind[safe_states_vec_ind[condition], :]
-    #         end = self.ind[next_states_vec_ind[condition], :]
-    #         self.graph.add_edges_from(zip(map(tuple, start), map(tuple,
-    # end)))
-
-    def compute_graph_lazy(self):
-        states_vec_ind = np.arange(self.S_hat.shape[0])
-
-        for action in range(1, self.S_hat.shape[1]):
-            # States where is safe to apply action = action
-            safe_states_vec_ind = states_vec_ind[
-                np.logical_and(self.S_hat[:, action],
-                               np.logical_not(self.S_hat_old[:, action]))]
-
-            # Resulting states when applying action at safe_states_vec_ind
-            next_states_vec_ind = self.dynamics_vec_ind(safe_states_vec_ind,
-                                                        action)
-
-            # Resulting states that are also safe
-            condition = self.S_hat[next_states_vec_ind, 0]
-
-            # Add edges to graph
-            start = self.grid_index[safe_states_vec_ind[condition], :]
-            end = self.grid_index[next_states_vec_ind[condition], :]
-            self.graph_lazy.add_edges_from(zip(map(tuple, start),
-                                               map(tuple, end)))
-
 
 def states_to_nodes(states, step_size):
     """Convert physical states to node numbers.
@@ -778,7 +547,7 @@ def manhattan_dist(a, b):
 if __name__ == "__main__":
     import time
 
-    mars = True
+    mars = False
 
     if mars:
         from osgeo import gdal
