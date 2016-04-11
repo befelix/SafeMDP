@@ -10,7 +10,7 @@ import networkx as nx
 import os
 
 
-__all__ = ['SafeMDP', 'mat2vec', 'vec2mat', 'draw_gp_sample', 'manhattan_dist',
+__all__ = ['SafeMDP', 'draw_gp_sample', 'manhattan_dist',
            'grid', 'states_to_nodes', 'nodes_to_states']
 
 
@@ -179,7 +179,7 @@ class SafeMDP(object):
         plt.title("action " + str(action))
         plt.show()
 
-    def add_observation(self, state_mat_ind, action):
+    def add_observation(self, node, action):
         """
         Adds an observation of the given state-action pair. Observing the pair
         (s, a) means to add an observation of the altitude at s and an
@@ -192,23 +192,22 @@ class SafeMDP(object):
         action: int
             action of the target state action pair
         """
-        # Observation of previous state
-        state_vec_ind = mat2vec(state_mat_ind, self.world_shape)
-        obs_state = self.altitudes[state_vec_ind]
-        tmpX = np.vstack((self.gp.X,
-                          self.coord[state_vec_ind, :].reshape(1, 2)))
-        tmpY = np.vstack((self.gp.Y, obs_state))
+        obs_state = self.altitudes[node]
 
         # Observation of next state
-        next_state_mat_ind = self.dynamics(state_mat_ind, action)
-        next_state_vec_ind = mat2vec(next_state_mat_ind, self.world_shape)
-        obs_next_state = self.altitudes[next_state_vec_ind]
+        for _, next_node, data in self.graph.edges_iter(1, data=True):
+            if data['action'] == action:
+                break
 
-        # Update observations
-        tmpX = np.vstack((tmpX,
-                          self.coord[next_state_vec_ind, :].reshape(1, 2)))
-        tmpY = np.vstack((tmpY, obs_next_state))
-        self.gp.set_XY(tmpX, tmpY)
+        obs_next_state = self.altitudes[next_node]
+
+        # Update GP with observations
+        self.gp.set_XY(np.vstack((self.gp.X,
+                                  self.coord[node, :].reshape(1, 2),
+                                  self.coord[next_node, :].reshape(1, 2))),
+                       np.vstack((self.gp.Y,
+                                  obs_state,
+                                  obs_next_state)))
 
     def target_sample(self):
         """
@@ -238,55 +237,50 @@ class SafeMDP(object):
             # Find   max uncertainty
             max_id = np.argmax(w)
 
-        # self.target_state = expander_id[0][max_id]
-        # self.target_action = expander_id[1][max_id]
-        # return expander_id[0][max_id], expander_id[1][max_id]
-        state = expander_id[0][max_id]
-        # # Store (s, a) pair
-        self.target_state[:] = vec2mat(state, self.world_shape)
+        self.target_state = expander_id[0][max_id]
         self.target_action = expander_id[1][max_id]
 
-    def dynamics(self, states, action):
-        """
-        Dynamics of the system
-        The function computes the one time step dynamic evolution of the system
-        for any number of initial state and for one given action
-    
-        Parameters
-        ----------
-        states: np.array
-            Two dimensional array. Each row contains the (x,y) coordinates of
-            the starting points we want to compute the evolution for
-        action: int
-            Control action (1 = up, 2 = right, 3 = down, 4 = left)
-
-        Returns
-        -------
-        next_states: np.array
-            Two dimensional array. Each row contains the (x,y) coordinates
-            of the state that results from applying action to the corresponding
-            row of the input states
-        """
-        n, m = self.world_shape
-        if states.ndim == 1:
-            states = states.reshape(1, 2)
-        next_states = np.copy(states)
-        if action == 1:
-            next_states[:, 1] += 1
-            next_states[next_states[:, 1] > m - 1, 1] = m - 1
-        elif action == 2:
-            next_states[:, 0] += 1
-            next_states[next_states[:, 0] > n - 1, 0] = n - 1
-        elif action == 3:
-            next_states[:, 1] -= 1
-            next_states[next_states[:, 1] < 0, 1] = 0
-        elif action == 4:
-            next_states[:, 0] -= 1
-            next_states[next_states[:, 0] < 0, 0] = 0
-        else:
-            raise ValueError("Unknown action")
-        return next_states
-
+    # def dynamics(self, states, action):
+    #     """
+    #     Dynamics of the system
+    #     The function computes the one time step dynamic evolution of the system
+    #     for any number of initial state and for one given action
+    #
+    #     Parameters
+    #     ----------
+    #     states: np.array
+    #         Two dimensional array. Each row contains the (x,y) coordinates of
+    #         the starting points we want to compute the evolution for
+    #     action: int
+    #         Control action (1 = up, 2 = right, 3 = down, 4 = left)
+    #
+    #     Returns
+    #     -------
+    #     next_states: np.array
+    #         Two dimensional array. Each row contains the (x,y) coordinates
+    #         of the state that results from applying action to the corresponding
+    #         row of the input states
+    #     """
+    #     n, m = self.world_shape
+    #     if states.ndim == 1:
+    #         states = states.reshape(1, 2)
+    #     next_states = np.copy(states)
+    #     if action == 1:
+    #         next_states[:, 1] += 1
+    #         next_states[next_states[:, 1] > m - 1, 1] = m - 1
+    #     elif action == 2:
+    #         next_states[:, 0] += 1
+    #         next_states[next_states[:, 0] > n - 1, 0] = n - 1
+    #     elif action == 3:
+    #         next_states[:, 1] -= 1
+    #         next_states[next_states[:, 1] < 0, 1] = 0
+    #     elif action == 4:
+    #         next_states[:, 0] -= 1
+    #         next_states[next_states[:, 0] < 0, 0] = 0
+    #     else:
+    #         raise ValueError("Unknown action")
+    #     return next_states
+    #
     # def compute_true_safe_set(self):
     #     """
     #     Computes the safe set given a perfect knowledge of the map
@@ -465,53 +459,53 @@ def grid(world_shape, step_size):
     return states_ind, nodes_to_states(states_ind, step_size)
 
 
-def vec2mat(vec_ind, world_shape):
-    """
-    Converts from vector indexing to matrix indexing
+# def vec2mat(vec_ind, world_shape):
+#     """
+#     Converts from vector indexing to matrix indexing
+#
+#     Parameters
+#     ----------
+#     vec_ind: np.array
+#         Each element contains the vector indexing of a state we want to do
+#         the convesrion for
+#     world_shape: shape
+#         Tuple that contains the shape of the grid world n x m
+#
+#     Returns
+#     -------
+#     return: np.array
+#         ith row contains the (x,y) coordinates of the ith element of the
+#         input vector vec_ind
+#     """
+#     n, m = world_shape
+#     row = np.floor(vec_ind / m)
+#     col = np.mod(vec_ind, m)
+#     return np.array([row, col]).astype(int)
 
-    Parameters
-    ----------
-    vec_ind: np.array
-        Each element contains the vector indexing of a state we want to do
-        the convesrion for
-    world_shape: shape
-        Tuple that contains the shape of the grid world n x m
 
-    Returns
-    -------
-    return: np.array
-        ith row contains the (x,y) coordinates of the ith element of the
-        input vector vec_ind
-    """
-    n, m = world_shape
-    row = np.floor(vec_ind / m)
-    col = np.mod(vec_ind, m)
-    return np.array([row, col]).astype(int)
-
-
-def mat2vec(states_mat_ind, world_shape):
-    """
-    Converts from matrix indexing to vector indexing
-
-    Parameters
-    ----------
-    states_mat_ind: np.array
-        Each row contains the (x,y) coordinates of each state we want to do
-        the conversion for
-    world_shape: shape
-        Tuple that contains the shape of the grid world n x m
-
-    Returns
-    -------
-    vec_ind: np.array
-        Each element contains the vector indexing of the point in the
-        corresponding row of the input states_mat_ind
-    """
-    if states_mat_ind.ndim == 1:
-        states_mat_ind = states_mat_ind.reshape(1, 2)
-    m = world_shape[1]
-    vec_ind = states_mat_ind[:, 1] + states_mat_ind[:, 0] * m
-    return vec_ind.astype(int)
+# def mat2vec(states_mat_ind, world_shape):
+#     """
+#     Converts from matrix indexing to vector indexing
+#
+#     Parameters
+#     ----------
+#     states_mat_ind: np.array
+#         Each row contains the (x,y) coordinates of each state we want to do
+#         the conversion for
+#     world_shape: shape
+#         Tuple that contains the shape of the grid world n x m
+#
+#     Returns
+#     -------
+#     vec_ind: np.array
+#         Each element contains the vector indexing of the point in the
+#         corresponding row of the input states_mat_ind
+#     """
+#     if states_mat_ind.ndim == 1:
+#         states_mat_ind = states_mat_ind.reshape(1, 2)
+#     m = world_shape[1]
+#     vec_ind = states_mat_ind[:, 1] + states_mat_ind[:, 0] * m
+#     return vec_ind.astype(int)
 
 
 def draw_gp_sample(kernel, world_shape, step_size):
@@ -737,11 +731,10 @@ if __name__ == "__main__":
         # Insert samples from (s, a) in S_hat0
         tmp = np.arange(x.coord.shape[0])
         s_vec_ind = np.random.choice(tmp[np.any(x.S_hat[:, 1:], axis=1)])
-        state = vec2mat(s_vec_ind, x.world_shape).T
         tmp = np.arange(1, x.S.shape[1])
         actions = tmp[x.S_hat[s_vec_ind, 1:].squeeze()]
-        for i in range(1):
-            x.add_observation(state, np.random.choice(actions))
+        for i in range(3):
+            x.add_observation(s_vec_ind, np.random.choice(actions))
 
         # Remove samples used for GP initialization
         x.gp.set_XY(x.gp.X[n_samples:, :], x.gp.Y[n_samples:])
@@ -751,7 +744,7 @@ if __name__ == "__main__":
             x.update_sets()
             x.target_sample()
             x.add_observation(x.target_state, x.target_action)
-            x.compute_graph_lazy()
+            # x.compute_graph_lazy()
             # plt.figure(1)
             # plt.clf()
             # nx.draw_networkx(x.graph)
@@ -760,11 +753,11 @@ if __name__ == "__main__":
 
         print(str(time.time() - t) + "seconds elapsed")
 
-        # Plot safe sets
-        x.plot_S(x.S_hat)
-        x.plot_S(x.true_S_hat)
-
-        # Classification performance
-        print(np.sum(np.logical_and(x.true_S_hat, np.logical_not(
-            x.S_hat))))  # in true S_hat and not S_hat
-        print(np.sum(np.logical_and(x.S_hat, np.logical_not(x.true_S_hat))))
+        # # Plot safe sets
+        # x.plot_S(x.S_hat)
+        # x.plot_S(x.true_S_hat)
+        #
+        # # Classification performance
+        # print(np.sum(np.logical_and(x.true_S_hat, np.logical_not(
+        #     x.S_hat))))  # in true S_hat and not S_hat
+        # print(np.sum(np.logical_and(x.S_hat, np.logical_not(x.true_S_hat))))
