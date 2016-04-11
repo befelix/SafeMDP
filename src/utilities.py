@@ -4,7 +4,7 @@ import numpy as np
 
 
 __all__ = ['DifferenceKernel', 'compute_S_hat0', 'reverse_action',
-           'dynamics_vec_ind']
+           'dynamics_vec_ind', 'reachable_set', 'max_out_degree']
 
 
 class DifferenceKernel(object):
