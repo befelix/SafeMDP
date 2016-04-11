@@ -263,6 +263,67 @@ def reachable_set(graph, initial_nodes, safe, out=None):
         return visited
 
 
+def returnable_set(graph, reverse_graph, initial_nodes, safe, out=None):
+    """
+    Compute the safe, returnable set of a graph
+
+    Parameters
+    ----------
+    graph: nx.DiGraph
+        Directed graph. Each edge must have associated action metadata,
+        which specifies the action that this edge corresponds to.
+    reverse_graph: nx.DiGraph
+        The reversed directed graph, `graph.reverse()`
+    initial_nodes: list
+        List of the initial, safe nodes that are used as a starting point to
+        compute the returnable set.
+    safe: np.array
+        Boolean array which on element (i,j) indicates whether taking
+        action j at node i is safe.
+        i=0 is interpreted as the node without taking an action.
+    out: np.array
+        The array to write the results to. Is assumed to be False everywhere
+        except at the initial nodes
+
+    Returns
+    -------
+    returnable_set: np.array
+        Boolean array that indicates whether a node belongs to the returnable
+        set.
+    """
+
+    if not initial_nodes:
+        raise AttributeError('Set of initial nodes needs to be non-empty.')
+
+    if out is None:
+        visited = np.zeros((graph.number_of_nodes(),
+                            max_out_degree(graph) + 1),
+                           dtype=np.bool)
+    else:
+        visited = out
+
+    # All nodes in the initial set are visited
+    visited[initial_nodes, 0] = True
+
+    stack = list(initial_nodes)
+
+    # TODO: rather than checking if things are safe, specify a safe subgraph?
+    while stack:
+        node = stack.pop(0)
+        # iterate over edges going into node
+        for _, prev_node in reverse_graph.edges_iter(node):
+            action = graph.get_edge_data(prev_node, node)['action']
+            if (not visited[prev_node, action] and
+                    safe[prev_node, action] and
+                    safe[prev_node, 0]):
+                visited[prev_node, action] = True
+                if not visited[prev_node, 0]:
+                    stack.append(prev_node)
+                    visited[prev_node, 0] = True
+    if out is None:
+        return visited
+
+
 def grid_world_graph(world_size):
     """Create a graph that represents a grid world.
 
