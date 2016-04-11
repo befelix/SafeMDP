@@ -195,7 +195,7 @@ class SafeMDP(object):
         obs_state = self.altitudes[node]
 
         # Observation of next state
-        for _, next_node, data in self.graph.edges_iter(1, data=True):
+        for _, next_node, data in self.graph.edges_iter(node, data=True):
             if data['action'] == action:
                 break
 
