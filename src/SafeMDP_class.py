@@ -15,7 +15,7 @@ __all__ = ['SafeMDP', 'draw_gp_sample', 'manhattan_dist',
 
 class SafeMDP(object):
     def __init__(self, gp, world_shape, step_size, beta, altitudes, h, S0,
-                 S_hat0, noise, L):
+                 S_hat0, L):
         """
         Parameters
         ----------
@@ -60,7 +60,6 @@ class SafeMDP(object):
         self.world_shape = world_shape
         self.step_size = step_size
         self.beta = beta
-        self.noise = noise
 
         # Grids for the map
         self.grid_index, self.coord = grid(self.world_shape, self.step_size)

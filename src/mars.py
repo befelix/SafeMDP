@@ -98,7 +98,7 @@ for index, length in enumerate(lengthScale):
 
     # Define SafeMDP object
     x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0,
-                S_hat0, noise, L)
+                S_hat0, L)
 
     # Insert samples from (s, a) in S_hat0
     tmp = np.arange(x.coord.shape[0])

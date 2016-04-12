@@ -9,7 +9,7 @@ from SafeMDP_class import *
 from utilities import *
 
 # Define world
-world_shape = (40, 40)
+world_shape = (20, 20)
 step_size = (0.5, 0.5)
 
 # Define GP
@@ -59,7 +59,7 @@ S_hat0 = compute_S_hat0(np.nan, world_shape, 4, altitudes,
 
 # Define SafeMDP object
 x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0,
-            noise, L)
+            L)
 
 # Insert samples from (s, a) in S_hat0
 tmp = np.arange(x.coord.shape[0])
