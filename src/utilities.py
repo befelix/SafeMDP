@@ -370,47 +370,6 @@ def grid_world_graph(world_size):
     return graph
 
 
-def compute_true_safe_set(self, world_size, altitudes):
-    """
-    Compute the safe set given a perfect knowledge of the map
-
-    Parameters
-    ----------
-    world_size: tuple
-
-
-    Returns
-    -------
-    true_safe: np.array
-        Boolean array n_states x (n_actions + 1).
-    """
-
-    # Initialize
-    true_safe = np.empty_like(self.S, dtype=bool)
-
-    # All true states are safe
-    true_safe[:, 0] = True
-
-    # TODO: This should be a function that takes mean and variance (in
-    # TODO: this case 0) and returns the safety matrix. Then we can use the
-    # TODO: same function in `update_confidence_intervals(.)`
-    # Compute safe (s, a) pairs
-    for action in range(1, self.S.shape[1]):
-        next_mat_ind = self.dynamics(self.grid_index, action)
-        next_vec_ind = mat2vec(next_mat_ind, self.world_shape)
-        true_safe[:, action] = ((self.altitudes -
-                                 self.altitudes[next_vec_ind]) /
-                                self.step_size[0]) >= self.h
-
-    # (s, a) pairs that lead out of boundaries are not safe
-    n, m = self.world_shape
-    true_safe[m - 1:m * (n + 1) - 1:m, 1] = False
-    true_safe[(n - 1) * m:n * m, 2] = False
-    true_safe[0:n * m:m, 3] = False
-    true_safe[0:m, 4] = False
-    return true_safe
-
-
 def dynamics(self, states, action):
     """
     Dynamics of the system
@@ -494,36 +453,24 @@ def compute_true_safe_set(world_shape, altitude, h):
     return true_safe
 
 
-def compute_true_S_hat(self):
+def compute_true_S_hat(graph, safe_set, initial_nodes, reverse_graph=None):
     """
-    Computes the safe set with reachability and recovery properties
-    given a perfect knowledge of the map
+    Compute the true safe set with reachability and returnability.
+
+    Parameters
+    ----------
+    graph: nx.DiGraph
+    safe_set: np.array
+    initial_nodes: list of int
+    reverse_graph: nx.DiGraph
+        graph.reverse()
 
     Returns
     -------
     true_safe: np.array
         Boolean array n_states x (n_actions + 1).
     """
-    # Initialize
-    true_S_hat = np.zeros_like(self.S, dtype=bool)
-    self.reach[:] = self.S_hat
-    self.ret[:] = self.S_hat
-
-    # Substitute S with true S for update_reachable_set and update_return_set methods
-    tmp = np.copy(self.S)
-    self.S[:] = self.true_S
-
-    # Reachable and recovery set
-    while self.update_reachable_set():
-        pass
-    while self.update_return_set():
-        pass
-
-    # Points are either in S_hat or in the intersection of reachable and
-    #  recovery sets
-    true_S_hat[:] = np.logical_or(self.S_hat,
-                                  np.logical_and(self.ret, self.reach))
-
-    # Reset value of S
-    self.S[:] = tmp
-    return true_S_hat
+    if reverse_graph is None:
+        reverse_graph = graph.reverse()
+    reach = reachable_set(graph, initial_nodes, safe_set)
+    return returnable_set(graph, reverse_graph, initial_nodes, reach)
