@@ -9,11 +9,24 @@ from scipy.spatial.distance import cdist, cityblock
 import networkx as nx
 
 
-__all__ = ['SafeMDP', 'draw_gp_sample', 'manhattan_dist',
+__all__ = ['GridWorld', 'draw_gp_sample', 'manhattan_dist',
            'grid', 'states_to_nodes', 'nodes_to_states']
 
 
 class SafeMDP(object):
+    def __init__(self, beta, h, L):
+        super(SafeMDP, self).__init__()
+        # Scalar for gp confidence intervals
+        self.beta = beta
+
+        # Threshold
+        self.h = h
+
+        # Lipschitz constant
+        self.L = L
+
+
+class GridWorld(SafeMDP):
     def __init__(self, gp, world_shape, step_size, beta, altitudes, h, S0,
                  S_hat0, L):
         """
@@ -52,23 +65,16 @@ class SafeMDP(object):
         L: float
            Lipschitz constant to compute expanders
         """
-
+        super(GridWorld, self).__init__(beta, h, L)
         self.gp = gp
         #    self.kernel = gp.kern
         #    self.likelihood = gp.likelihood
         self.altitudes = altitudes
         self.world_shape = world_shape
         self.step_size = step_size
-        self.beta = beta
 
         # Grids for the map
         self.coord = grid(self.world_shape, self.step_size)
-
-        # Threshold
-        self.h = h
-
-        # Lipschitz
-        self.L = L
 
         # Distances
         self.distance_matrix = cdist(self.coord, self.coord)

@@ -97,8 +97,8 @@ for index, length in enumerate(lengthScale):
     gp = GPy.core.GP(X, Y, kernel, lik)
 
     # Define SafeMDP object
-    x = SafeMDP(gp, world_shape, step_size, beta, altitudes, h, S0,
-                S_hat0, L)
+    x = GridWorld(gp, world_shape, step_size, beta, altitudes, h, S0,
+                  S_hat0, L)
 
     # Insert samples from (s, a) in S_hat0
     tmp = np.arange(x.coord.shape[0])
