@@ -453,9 +453,17 @@ def dynamics(self, states, action):
     return next_states
 
 
-def compute_true_safe_set(self):
+def compute_true_safe_set(world_shape, altitude, h):
     """
     Computes the safe set given a perfect knowledge of the map
+
+    Parameters
+    ----------
+    world_shape: tuple
+    altitude: np.array
+        1-d vector with altitudes for each node
+    h: float
+        Safety threshold for height differences
 
     Returns
     -------
@@ -463,29 +471,19 @@ def compute_true_safe_set(self):
         Boolean array n_states x (n_actions + 1).
     """
 
-    # Initialize
-    true_safe = np.empty_like(self.S, dtype=bool)
+    true_safe = np.zeros((world_shape[0] * world_shape[1], 5), dtype=np.bool)
 
-    # All true states are safe
-    true_safe[:, 0] = True
+    altitude_grid = altitude.reshape(world_shape)
+    safe_grid = true_safe.T.reshape((5,) + world_shape)
 
-    # TODO: This should be a function that takes mean and variance (in
-    # TODO: this case 0) and returns the safety matrix. Then we can use the
-    # TODO: same function in `update_confidence_intervals(.)`
-    # Compute safe (s, a) pairs
-    for action in range(1, self.S.shape[1]):
-        next_mat_ind = self.dynamics(self.grid_index, action)
-        next_vec_ind = mat2vec(next_mat_ind, self.world_shape)
-        true_safe[:, action] = ((self.altitudes -
-                                 self.altitudes[next_vec_ind]) /
-                                self.step_size[0]) >= self.h
+    right_diff = altitude_grid[:, 1:] - altitude_grid[:, :-1]
+    down_diff = altitude_grid[:-1, :] - altitude_grid[1:, :]
 
-    # (s, a) pairs that lead out of boundaries are not safe
-    n, m = self.world_shape
-    true_safe[m - 1:m * (n + 1) - 1:m, 1] = False
-    true_safe[(n - 1) * m:n * m, 2] = False
-    true_safe[0:n * m:m, 3] = False
-    true_safe[0:m, 4] = False
+    safe_grid[1, :, :-1] = right_diff > h
+    safe_grid[2, :-1, :] = down_diff > h
+    safe_grid[3, :, 1:] = -right_diff > h
+    safe_grid[4, 1:, :] = -down_diff > h
+
     return true_safe
 
 
