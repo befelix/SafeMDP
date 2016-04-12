@@ -103,11 +103,10 @@ for index, length in enumerate(lengthScale):
     # Insert samples from (s, a) in S_hat0
     tmp = np.arange(x.coord.shape[0])
     s_vec_ind = np.random.choice(tmp[np.any(x.S_hat[:, 1:], axis=1)])
-    state = vec2mat(s_vec_ind, x.world_shape).T
     tmp = np.arange(1, x.S.shape[1])
     actions = tmp[x.S_hat[s_vec_ind, 1:].squeeze()]
     for i in range(1):
-        x.add_observation(state, np.random.choice(actions))
+        x.add_observation(s_vec_ind, np.random.choice(actions))
 
     # Remove samples used for GP initialization and possibly
     # hyperparameters optimization

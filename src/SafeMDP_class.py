@@ -308,55 +308,6 @@ def grid(world_shape, step_size):
     return states_ind, nodes_to_states(states_ind, step_size)
 
 
-# def vec2mat(vec_ind, world_shape):
-#     """
-#     Converts from vector indexing to matrix indexing
-#
-#     Parameters
-#     ----------
-#     vec_ind: np.array
-#         Each element contains the vector indexing of a state we want to do
-#         the convesrion for
-#     world_shape: shape
-#         Tuple that contains the shape of the grid world n x m
-#
-#     Returns
-#     -------
-#     return: np.array
-#         ith row contains the (x,y) coordinates of the ith element of the
-#         input vector vec_ind
-#     """
-#     n, m = world_shape
-#     row = np.floor(vec_ind / m)
-#     col = np.mod(vec_ind, m)
-#     return np.array([row, col]).astype(int)
-
-
-# def mat2vec(states_mat_ind, world_shape):
-#     """
-#     Converts from matrix indexing to vector indexing
-#
-#     Parameters
-#     ----------
-#     states_mat_ind: np.array
-#         Each row contains the (x,y) coordinates of each state we want to do
-#         the conversion for
-#     world_shape: shape
-#         Tuple that contains the shape of the grid world n x m
-#
-#     Returns
-#     -------
-#     vec_ind: np.array
-#         Each element contains the vector indexing of the point in the
-#         corresponding row of the input states_mat_ind
-#     """
-#     if states_mat_ind.ndim == 1:
-#         states_mat_ind = states_mat_ind.reshape(1, 2)
-#     m = world_shape[1]
-#     vec_ind = states_mat_ind[:, 1] + states_mat_ind[:, 0] * m
-#     return vec_ind.astype(int)
-
-
 def draw_gp_sample(kernel, world_shape, step_size):
     """
     Draws a sample from a Gaussian process distribution over a user
