@@ -7,7 +7,8 @@ import networkx as nx
 from numpy.testing import *
 
 from .utilities import (DifferenceKernel, max_out_degree, reachable_set,
-                        returnable_set, grid_world_graph)
+                        returnable_set, grid_world_graph,
+                        compute_true_safe_set)
 
 
 class DifferenceKernelTest(unittest.TestCase):
@@ -295,6 +296,34 @@ class GridWorldGraphTest(unittest.TestCase):
                                   action=4)
 
         assert_(nx.is_isomorphic(graph, graph_true))
+
+
+class TestTrueSafeSet(unittest.TestCase):
+
+    def test_differences_safe(self):
+        altitudes = np.array([[1, 2, 3],
+                              [2, 3, 4]])
+        safe = compute_true_safe_set((2, 3), altitudes.reshape(-1), -1)
+        true_safe = np.array([[1, 1, 1, 1, 1, 1],
+                              [1, 1, 0, 1, 1, 0],
+                              [1, 1, 1, 0, 0, 0],
+                              [0, 1, 1, 0, 1, 1],
+                              [0, 0, 0, 1, 1, 1]],
+                             dtype=np.bool).T
+
+        assert_equal(safe, true_safe)
+
+    def test_differences_unsafe(self):
+        altitudes = np.array([[1, 0, 3],
+                              [2, 3, 0]])
+        safe = compute_true_safe_set((2, 3), altitudes.reshape(-1), -1)
+        true_safe = np.array([[1, 1, 1, 1, 1, 1],
+                              [1, 0, 0, 1, 1, 0],
+                              [1, 0, 1, 0, 0, 0],
+                              [0, 1, 1, 0, 1, 0],
+                              [0, 0, 0, 1, 1, 0]],
+                             dtype=np.bool).T
+        assert_equal(safe, true_safe)
 
 
 if __name__ == '__main__':

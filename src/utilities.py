@@ -476,13 +476,14 @@ def compute_true_safe_set(world_shape, altitude, h):
     altitude_grid = altitude.reshape(world_shape)
     safe_grid = true_safe.T.reshape((5,) + world_shape)
 
-    right_diff = altitude_grid[:, 1:] - altitude_grid[:, :-1]
+    right_diff = altitude_grid[:, :-1] - altitude_grid[:, 1:]
     down_diff = altitude_grid[:-1, :] - altitude_grid[1:, :]
 
-    safe_grid[1, :, :-1] = right_diff > h
-    safe_grid[2, :-1, :] = down_diff > h
-    safe_grid[3, :, 1:] = -right_diff > h
-    safe_grid[4, 1:, :] = -down_diff > h
+    true_safe[:, 0] = True
+    safe_grid[1, :, :-1] = right_diff >= h
+    safe_grid[2, :-1, :] = down_diff >= h
+    safe_grid[3, :, 1:] = -right_diff >= h
+    safe_grid[4, 1:, :] = -down_diff >= h
 
     return true_safe
 
