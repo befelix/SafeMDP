@@ -102,7 +102,10 @@ class GridWorld(SafeMDP):
     def __init__(self, gp, world_shape, step_size, beta, altitudes, h, S0,
                  S_hat0, L):
 
+        # Safe set
+        self.S = S0
         graph = grid_world_graph(world_shape)
+        link_graph_and_safe_set(graph, self.S)
         super(GridWorld, self).__init__(graph, gp, S_hat0, h, L, beta=2)
 
         self.altitudes = altitudes
@@ -114,9 +117,6 @@ class GridWorld(SafeMDP):
 
         # Distances
         self.distance_matrix = cdist(self.coord, self.coord)
-
-        # Safe set
-        self.S = S0
 
         # Confidence intervals
         self.l = np.empty(self.S.shape, dtype=float)
@@ -176,7 +176,7 @@ class GridWorld(SafeMDP):
         Update the sets S, S_hat and G taking with the available observation
         """
         self.update_confidence_interval()
-        self.S = self.l >= self.h
+        self.S[:] = self.l >= self.h
 
         self.compute_S_hat()
 
@@ -352,3 +352,18 @@ def draw_gp_sample(kernel, world_shape, step_size):
 
 def manhattan_dist(a, b):
     return cityblock(a, b)
+
+
+def link_graph_and_safe_set(graph, safe_set):
+    """Link the safe set to the graph model.
+
+    Parameters
+    ----------
+    graph: nx.DiGraph()
+    safe_set: np.array
+        Safe set. For each node the edge (i, j) under action (a) is linked to
+        safe_set[i, a]
+    """
+    for node, next_node in graph.edges_iter():
+        edge = graph[node][next_node]
+        edge['safe'] = safe_set[node:node+1, edge['action']]

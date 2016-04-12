@@ -252,9 +252,7 @@ def reachable_set(graph, initial_nodes, safe, out=None):
         # iterate over edges going away from node
         for _, next_node, data in graph.edges_iter(node, data=True):
             action = data['action']
-            if (not visited[node, action] and
-                    safe[node, action] and
-                    safe[next_node, 0]):
+            if not visited[node, action] and data['safe']:
                 visited[node, action] = True
                 if not visited[next_node, 0]:
                     stack.append(next_node)
@@ -312,11 +310,9 @@ def returnable_set(graph, reverse_graph, initial_nodes, safe, out=None):
         node = stack.pop(0)
         # iterate over edges going into node
         for _, prev_node in reverse_graph.edges_iter(node):
-            action = graph.get_edge_data(prev_node, node)['action']
-            if (not visited[prev_node, action] and
-                    safe[prev_node, action] and
-                    safe[prev_node, 0]):
-                visited[prev_node, action] = True
+            data = graph.get_edge_data(prev_node, node)
+            if not visited[prev_node, data['action']] and data['safe']:
+                visited[prev_node, data['action']] = True
                 if not visited[prev_node, 0]:
                     stack.append(prev_node)
                     visited[prev_node, 0] = True
