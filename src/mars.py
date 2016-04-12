@@ -113,7 +113,7 @@ for index, length in enumerate(lengthScale):
     x.gp.set_XY(x.gp.X[n_samples:, :], x.gp.Y[n_samples:])
 
     t = time.time()
-    for i in range(50):
+    for i in range(10):
         x.update_sets()
         next_sample = x.target_sample()
         x.add_observation(*next_sample)
@@ -121,6 +121,9 @@ for index, length in enumerate(lengthScale):
         # print(i)
         print(np.any(x.G))
     print(str(time.time() - t) + "seconds elapsed")
+
+    true_S = compute_true_safe_set(x.world_shape, x.altitudes, x.h)
+    true_S_hat = compute_true_S_hat(x.graph, true_S, x.initial_nodes)
 
     # Plot safe sets
     x.plot_S(x.S_hat)

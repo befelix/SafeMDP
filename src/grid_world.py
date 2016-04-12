@@ -8,7 +8,7 @@ from src.SafeMDP_class import (reachable_set, returnable_set, SafeMDP,
                                link_graph_and_safe_set)
 
 
-__all__ = ['compute_true_S_hat', 'compute_S_hat0', 'grid_world_graph',
+__all__ = ['compute_true_safe_set', 'compute_true_S_hat', 'compute_S_hat0', 'grid_world_graph',
            'grid', 'GridWorld', 'draw_gp_sample']
 
 
