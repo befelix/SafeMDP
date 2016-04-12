@@ -62,7 +62,7 @@ class SafeMDP(object):
         self.beta = beta
 
         # Grids for the map
-        self.grid_index, self.coord = grid(self.world_shape, self.step_size)
+        self.coord = grid(self.world_shape, self.step_size)
 
         # Threshold
         self.h = h
@@ -305,7 +305,7 @@ def grid(world_shape, step_size):
                          np.arange(m),
                          indexing='ij')
     states_ind = np.vstack((xx.flatten(), yy.flatten())).T
-    return states_ind, nodes_to_states(states_ind, step_size)
+    return nodes_to_states(states_ind, step_size)
 
 
 def draw_gp_sample(kernel, world_shape, step_size):
@@ -323,7 +323,7 @@ def draw_gp_sample(kernel, world_shape, step_size):
         Step size along any axis to find linearly spaced points
     """
     # Compute linearly spaced grid
-    coord = grid(world_shape, step_size)[1]
+    coord = grid(world_shape, step_size)
 
     # Draw a sample from GP
     cov = kernel.K(coord) + np.eye(coord.shape[0]) * 1e-10
