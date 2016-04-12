@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from osgeo import gdal
 
-from src.grid_world import compute_S_hat0, GridWorld
+from grid_world import *
 
 # Extract and plot Mars data
 world_shape = (60, 60)
