@@ -5,7 +5,7 @@ from utilities import *
 import numpy as np
 import GPy
 import matplotlib.pyplot as plt
-from scipy.spatial.distance import cdist, cityblock
+from scipy.spatial.distance import cdist
 import networkx as nx
 
 
@@ -392,10 +392,6 @@ def draw_gp_sample(kernel, world_shape, step_size):
     cov = kernel.K(coord) + np.eye(coord.shape[0]) * 1e-10
     sample = np.random.multivariate_normal(np.zeros(coord.shape[0]), cov)
     return sample, coord
-
-
-def manhattan_dist(a, b):
-    return cityblock(a, b)
 
 
 def link_graph_and_safe_set(graph, safe_set):
