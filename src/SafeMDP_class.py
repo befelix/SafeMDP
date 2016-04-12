@@ -5,7 +5,7 @@ from utilities import *
 import numpy as np
 import GPy
 import matplotlib.pyplot as plt
-from scipy.spatial.distance import cdist
+from scipy.spatial.distance import cdist, cityblock
 import networkx as nx
 import os
 
@@ -532,9 +532,7 @@ def draw_gp_sample(kernel, world_shape, step_size):
 
 
 def manhattan_dist(a, b):
-    (x1, y1) = a
-    (x2, y2) = b
-    return np.fabs(x1 - x2) + np.fabs(y1 - y2)
+    return cityblock(a, b)
 
 
 # test
