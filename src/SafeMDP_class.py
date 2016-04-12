@@ -36,7 +36,6 @@ class SafeMDP(object):
         safe_set_size = (num_nodes, num_edges + 1)
 
         self.reach = np.empty(safe_set_size, dtype=np.bool)
-        self.ret = np.empty(safe_set_size, dtype=np.bool)
         self.G = np.empty(safe_set_size, dtype=np.bool)
 
         self.S_hat = S_hat0
