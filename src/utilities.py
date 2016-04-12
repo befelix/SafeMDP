@@ -328,9 +328,11 @@ def grid_world_graph(world_size):
     """Create a graph that represents a grid world.
 
     In the grid world there are four actions, (1, 2, 3, 4), which correspond
-    to going (right, down, left, up) on the grid. The states are ordered so
-    that `np.arange(np.prod(world_size)).reshape(world_size)` corresponds to
-    a matrix where each
+    to going (up, right, down, left) in the x-y plane. The states are
+    ordered so that `np.arange(np.prod(world_size)).reshape(world_size)`
+    corresponds to a matrix where increasing the row index corresponds to the
+    x direction in the graph, and increasing y index corresponds to the y
+    direction.
 
     Parameters
     ----------
@@ -438,17 +440,17 @@ def compute_true_safe_set(world_shape, altitude, h):
     safe_grid = true_safe.T.reshape((5,) + world_shape)
 
     # Height difference (next height - current height) --> positive if downhill
-    right_diff = altitude_grid[:, :-1] - altitude_grid[:, 1:]
-    down_diff = altitude_grid[:-1, :] - altitude_grid[1:, :]
+    up_diff = altitude_grid[:, :-1] - altitude_grid[:, 1:]
+    right_diff = altitude_grid[:-1, :] - altitude_grid[1:, :]
 
     # State are always safe
     true_safe[:, 0] = True
 
     # Going in the opposite direction
-    safe_grid[1, :, :-1] = right_diff >= h
-    safe_grid[2, :-1, :] = down_diff >= h
-    safe_grid[3, :, 1:] = -right_diff >= h
-    safe_grid[4, 1:, :] = -down_diff >= h
+    safe_grid[1, :, :-1] = up_diff >= h
+    safe_grid[2, :-1, :] = right_diff >= h
+    safe_grid[3, :, 1:] = -up_diff >= h
+    safe_grid[4, 1:, :] = -right_diff >= h
 
     return true_safe
 
