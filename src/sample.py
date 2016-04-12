@@ -35,7 +35,7 @@ xx, yy = np.meshgrid(np.linspace(0, (n - 1) * step1, n),
 coord = np.vstack((xx.flatten(), yy.flatten())).T
 
 # Safety threhsold
-h = -0.9
+h = -0.25
 
 # Lipschitz
 L = 0
@@ -86,11 +86,14 @@ for i in range(100):
 
 print(str(time.time() - t) + "seconds elapsed")
 
-# # Plot safe sets
-# x.plot_S(x.S_hat)
-# x.plot_S(x.true_S_hat)
-#
-# # Classification performance
-# print(np.sum(np.logical_and(x.true_S_hat, np.logical_not(
-#     x.S_hat))))  # in true S_hat and not S_hat
-# print(np.sum(np.logical_and(x.S_hat, np.logical_not(x.true_S_hat))))
+true_S = compute_true_safe_set(x.world_shape, x.altitudes, x.h)
+true_S_hat = compute_true_S_hat(x.graph, true_S, x.initial_nodes)
+
+# Plot safe sets
+x.plot_S(x.S_hat)
+x.plot_S(true_S_hat)
+
+# Classification performance
+print(np.sum(np.logical_and(true_S_hat, np.logical_not(
+    x.S_hat))))  # in true S_hat and not S_hat
+print(np.sum(np.logical_and(x.S_hat, np.logical_not(true_S_hat))))
