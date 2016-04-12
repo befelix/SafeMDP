@@ -93,7 +93,21 @@ class SafeMDP(object):
         self.graph = grid_world_graph(self.world_shape)
         self.graph_reverse = self.graph.reverse()
 
-    def update_confidence_interval(self):
+        # Prediction with difference of altitudes
+        states_ind = np.arange(np.prod(self.world_shape))
+        states_grid = states_ind.reshape(world_shape)
+
+        self._prev_up = states_grid[:, :-1].flatten()
+        self._next_up = states_grid[:, 1:].flatten()
+        self._prev_right = states_grid[:-1, :].flatten()
+        self._next_right = states_grid[1:, :].flatten()
+
+        self._mat_up = np.hstack((self.coord[self._prev_up, :],
+                                  self.coord[self._next_up, :]))
+        self._mat_right = np.hstack((self.coord[self._prev_right, :],
+                                     self.coord[self._next_right, :]))
+
+    def update_confidence_interval(self, jacobian=False):
         """
         Updates the lower and the upper bound of the confidence intervals
         using then posterior distribution over the gradients of the altitudes
@@ -105,22 +119,52 @@ class SafeMDP(object):
         u: np.array
             upper bound of the safety feature (mean - beta*std)
         """
-        # Predict safety feature
-        mu, s = self.gp.predict_jacobian(self.coord, full_cov=False)
-        mu = np.squeeze(mu)
+        if jacobian:
+            # Predict safety feature
+            mu, s = self.gp.predict_jacobian(self.coord, full_cov=False)
+            mu = np.squeeze(mu)
 
-        # Confidence interval
-        s = self.beta * np.sqrt(s)
+            # Confidence interval
+            s = self.beta * np.sqrt(s)
 
-        # State are always safe
-        self.l[:, 0] = self.u[:, 0] = self.h
+            # State are always safe
+            self.l[:, 0] = self.u[:, 0] = self.h
 
-        # Update safety feature
-        self.l[:, [1, 2]] = -mu[:, ::-1] - s[:, ::-1]
-        self.l[:, [3, 4]] = mu[:, ::-1] - s[:, ::-1]
+            # Update safety feature
+            self.l[:, [1, 2]] = -mu[:, ::-1] - s[:, ::-1]
+            self.l[:, [3, 4]] = mu[:, ::-1] - s[:, ::-1]
 
-        self.u[:, [1, 2]] = -mu[:, ::-1] + s[:, ::-1]
-        self.u[:, [3, 4]] = mu[:, ::-1] + s[:, ::-1]
+            self.u[:, [1, 2]] = -mu[:, ::-1] + s[:, ::-1]
+            self.u[:, [3, 4]] = mu[:, ::-1] + s[:, ::-1]
+        else:
+            # Initialize to unsafe
+            self.l[:] = self.u[:] = self.h - 1
+
+            # States are always safe
+            self.l[:, 0] = self.u[:, 0] = self.h
+
+            # Actions up and down
+            mu_up, s_up = self.gp.predict(self._mat_up,
+                                          kern=DifferenceKernel(self.gp.kern),
+                                          full_cov=False)
+            s_up = self.beta * np.sqrt(s_up)
+
+            self.l[self._prev_up, 1, None] = -mu_up - s_up
+            self.u[self._prev_up, 1, None] = -mu_up + s_up
+
+            self.l[self._next_up, 3, None] = mu_up - s_up
+            self.u[self._next_up, 3, None] = mu_up + s_up
+
+            # Actions left and right
+            mu_right, s_right = self.gp.predict(self._mat_right,
+                                                kern=DifferenceKernel(
+                                                    self.gp.kern), full_cov=False)
+            s_right = self.beta * np.sqrt(s_right)
+            self.l[self._prev_right, 2, None] = -mu_right - s_right
+            self.u[self._prev_right, 2, None] = -mu_right + s_right
+
+            self.l[self._next_right, 4, None] = mu_right - s_right
+            self.u[self._next_right, 4, None] = mu_right + s_right
 
     def compute_expanders(self):
         """Compute the expanders based on the current estimate of S_hat."""
