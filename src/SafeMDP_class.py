@@ -9,79 +9,114 @@ from scipy.spatial.distance import cdist, cityblock
 import networkx as nx
 
 
-__all__ = ['SafeMDP', 'draw_gp_sample', 'manhattan_dist',
+__all__ = ['GridWorld', 'draw_gp_sample', 'manhattan_dist',
            'grid', 'states_to_nodes', 'nodes_to_states']
 
 
 class SafeMDP(object):
-    def __init__(self, gp, world_shape, step_size, beta, altitudes, h, S0,
-                 S_hat0, L):
-        """
-        Parameters
-        ----------
-
-        gp: GPy.core.GP
-            Gaussian process that expresses our current belief over the safety
-            feature
-        world_shape: shape
-                     Tuple that contains the shape of the grid world n x m
-        step_size: tuple of floats
-                   Tuple that contains the step sizes along each direction to
-                   create a linearly spaced grid
-        beta: float
-              Scaling factor to determine the amplitude of the confidence
-              intervals
-        altitudes: np.array
-                   It contains the flattened n x m matrix where the altitudes
-                   of all the points in the map are stored
-        h: float
-           Safety threshold
-        S0: np.array
-            n_states x (n_actions + 1) array of booleans that indicates which
-            states (first column) and which state-action pairs belong to the
-            initial safe seed. Notice that, by convention we initialize all
-            the states to be safe
-        S_hat0: np.array or nan
-            n_states x (n_actions + 1) array of booleans that indicates which
-            states (first column) and which state-action pairs belong to the
-            initial safe seed and satisfy recovery and reachability properties.
-            If it is nan, such a boolean matrix is computed during
-            initialization
-        noise: float
-               Standard deviation of the measurement noise
-        L: float
-           Lipschitz constant to compute expanders
-        """
-
-        self.gp = gp
-        #    self.kernel = gp.kern
-        #    self.likelihood = gp.likelihood
-        self.altitudes = altitudes
-        self.world_shape = world_shape
-        self.step_size = step_size
+    def __init__(self, graph, gp, S_hat0, h, L, beta=2):
+        super(SafeMDP, self).__init__()
+        # Scalar for gp confidence intervals
         self.beta = beta
-
-        # Grids for the map
-        self.coord = grid(self.world_shape, self.step_size)
 
         # Threshold
         self.h = h
 
-        # Lipschitz
+        # Lipschitz constant
         self.L = L
 
-        # Distances
-        self.distance_matrix = cdist(self.coord, self.coord)
+        # GP model
+        self.gp = gp
 
-        # Safe and expanders sets
-        self.S = S0
-        self.reach = np.empty_like(self.S, dtype=bool)
-        self.ret = np.empty_like(self.S, dtype=bool)
-        self.G = np.empty_like(self.S, dtype=bool)
+        self.graph = graph
+        self.graph_reverse = self.graph.reverse()
+
+        num_nodes = self.graph.number_of_nodes()
+        num_edges = max_out_degree(graph)
+        safe_set_size = (num_nodes, num_edges + 1)
+
+        self.reach = np.empty(safe_set_size, dtype=np.bool)
+        self.ret = np.empty(safe_set_size, dtype=np.bool)
+        self.G = np.empty(safe_set_size, dtype=np.bool)
 
         self.S_hat = S_hat0
         self.S_hat0 = self.S_hat.copy()
         self.initial_nodes = self.S_hat0[:, 0].nonzero()[0].tolist()
+
+    def compute_S_hat(self):
+        """Compute the safely reachable set given the current safe_set."""
+        self.reach[:] = False
+        reachable_set(self.graph, self.initial_nodes, self.S, out=self.reach)
+
+        self.S_hat[:] = False
+        returnable_set(self.graph, self.graph_reverse, self.initial_nodes,
+                       self.reach, out=self.S_hat)
+
+    def add_gp_observations(self, x_new, y_new):
+        """Add observations to the gp mode."""
+        # Update GP with observations
+        self.gp.set_XY(np.vstack((self.gp.X,
+                                  x_new)),
+                       np.vstack((self.gp.Y,
+                                  y_new)))
+
+
+class GridWorld(SafeMDP):
+    """
+    Grid world with Safe exploration
+
+    Parameters
+    ----------
+    gp: GPy.core.GP
+        Gaussian process that expresses our current belief over the safety
+        feature
+    world_shape: shape
+                 Tuple that contains the shape of the grid world n x m
+    step_size: tuple of floats
+               Tuple that contains the step sizes along each direction to
+               create a linearly spaced grid
+    beta: float
+          Scaling factor to determine the amplitude of the confidence
+          intervals
+    altitudes: np.array
+               It contains the flattened n x m matrix where the altitudes
+               of all the points in the map are stored
+    h: float
+       Safety threshold
+    S0: np.array
+        n_states x (n_actions + 1) array of booleans that indicates which
+        states (first column) and which state-action pairs belong to the
+        initial safe seed. Notice that, by convention we initialize all
+        the states to be safe
+    S_hat0: np.array or nan
+        n_states x (n_actions + 1) array of booleans that indicates which
+        states (first column) and which state-action pairs belong to the
+        initial safe seed and satisfy recovery and reachability properties.
+        If it is nan, such a boolean matrix is computed during
+        initialization
+    noise: float
+           Standard deviation of the measurement noise
+    L: float
+       Lipschitz constant to compute expanders
+    """
+    def __init__(self, gp, world_shape, step_size, beta, altitudes, h, S0,
+                 S_hat0, L):
+
+        # Safe set
+        self.S = S0
+        graph = grid_world_graph(world_shape)
+        link_graph_and_safe_set(graph, self.S)
+        super(GridWorld, self).__init__(graph, gp, S_hat0, h, L, beta=2)
+
+        self.altitudes = altitudes
+        self.world_shape = world_shape
+        self.step_size = step_size
+
+        # Grids for the map
+        self.coord = grid(self.world_shape, self.step_size)
+
+        # Distances
+        self.distance_matrix = cdist(self.coord, self.coord)
 
         # Confidence intervals
         self.l = np.empty(self.S.shape, dtype=float)
@@ -89,9 +124,6 @@ class SafeMDP(object):
         self.l[:] = -np.inf
         self.u[:] = np.inf
         self.l[self.S] = h
-
-        self.graph = grid_world_graph(self.world_shape)
-        self.graph_reverse = self.graph.reverse()
 
         # Prediction with difference of altitudes
         states_ind = np.arange(np.prod(self.world_shape))
@@ -188,14 +220,9 @@ class SafeMDP(object):
         Update the sets S, S_hat and G taking with the available observation
         """
         self.update_confidence_interval()
-        self.S = self.l >= self.h
+        self.S[:] = self.l >= self.h
 
-        self.reach[:] = False
-        reachable_set(self.graph, self.initial_nodes, self.S, out=self.reach)
-
-        self.S_hat[:] = False
-        returnable_set(self.graph, self.graph_reverse, self.initial_nodes,
-                       self.reach, out=self.S_hat)
+        self.compute_S_hat()
 
         self.compute_expanders()
 
@@ -236,16 +263,8 @@ class SafeMDP(object):
             if data['action'] == action:
                 break
 
-        obs_state = self.altitudes[node]
-        obs_next_state = self.altitudes[next_node]
-
-        # Update GP with observations
-        self.gp.set_XY(np.vstack((self.gp.X,
-                                  self.coord[[node], :],
-                                  self.coord[[next_node], :])),
-                       np.vstack((self.gp.Y,
-                                  obs_state,
-                                  obs_next_state)))
+        self.add_gp_observations(self.coord[[node, next_node], :],
+                                 self.altitudes[[node, next_node], None])
 
     def target_sample(self):
         """
@@ -377,3 +396,18 @@ def draw_gp_sample(kernel, world_shape, step_size):
 
 def manhattan_dist(a, b):
     return cityblock(a, b)
+
+
+def link_graph_and_safe_set(graph, safe_set):
+    """Link the safe set to the graph model.
+
+    Parameters
+    ----------
+    graph: nx.DiGraph()
+    safe_set: np.array
+        Safe set. For each node the edge (i, j) under action (a) is linked to
+        safe_set[i, a]
+    """
+    for node, next_node in graph.edges_iter():
+        edge = graph[node][next_node]
+        edge['safe'] = safe_set[node:node+1, edge['action']]
