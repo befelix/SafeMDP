@@ -1,12 +1,14 @@
 from __future__ import division, print_function
 
 import time
-import numpy as np
+
 import GPy
 import matplotlib.pyplot as plt
+import numpy as np
 
-from SafeMDP_class import *
-from utilities import *
+from grid_world import *
+from src.grid_world import (compute_true_safe_set, compute_S_hat0,
+                            compute_true_S_hat)
 
 # Define world
 world_shape = (20, 20)

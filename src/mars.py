@@ -1,14 +1,14 @@
 from __future__ import division, print_function
 
-import time
-import numpy as np
 import os
-from osgeo import gdal
+import time
+
 import GPy
 import matplotlib.pyplot as plt
+import numpy as np
+from osgeo import gdal
 
-from SafeMDP_class import *
-from utilities import *
+from src.grid_world import compute_S_hat0, GridWorld
 
 # Extract and plot Mars data
 world_shape = (60, 60)

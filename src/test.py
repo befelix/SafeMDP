@@ -6,9 +6,10 @@ import numpy as np
 import networkx as nx
 from numpy.testing import *
 
-from .utilities import (DifferenceKernel, max_out_degree, reachable_set,
-                        returnable_set, grid_world_graph,
-                        compute_true_safe_set)
+from .utilities import *
+
+from src.SafeMDP_class import reachable_set, returnable_set
+from src.grid_world import compute_true_safe_set, grid_world_graph
 from .SafeMDP_class import link_graph_and_safe_set
 
 
