@@ -1,0 +1,9 @@
+.idea
+.ipynb_checkpoints
+
+# Python files
+*.pyc
+
+# Data files
+*.IMG
+*.tif
