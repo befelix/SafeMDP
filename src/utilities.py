@@ -368,3 +368,199 @@ def grid_world_graph(world_size):
                          action=4)
 
     return graph
+
+
+def compute_true_safe_set(self, world_size, altitudes):
+    """
+    Compute the safe set given a perfect knowledge of the map
+
+    Parameters
+    ----------
+    world_size: tuple
+
+
+    Returns
+    -------
+    true_safe: np.array
+        Boolean array n_states x (n_actions + 1).
+    """
+
+    # Initialize
+    true_safe = np.empty_like(self.S, dtype=bool)
+
+    # All true states are safe
+    true_safe[:, 0] = True
+
+    # TODO: This should be a function that takes mean and variance (in
+    # TODO: this case 0) and returns the safety matrix. Then we can use the
+    # TODO: same function in `update_confidence_intervals(.)`
+    # Compute safe (s, a) pairs
+    for action in range(1, self.S.shape[1]):
+        next_mat_ind = self.dynamics(self.grid_index, action)
+        next_vec_ind = mat2vec(next_mat_ind, self.world_shape)
+        true_safe[:, action] = ((self.altitudes -
+                                 self.altitudes[next_vec_ind]) /
+                                self.step_size[0]) >= self.h
+
+    # (s, a) pairs that lead out of boundaries are not safe
+    n, m = self.world_shape
+    true_safe[m - 1:m * (n + 1) - 1:m, 1] = False
+    true_safe[(n - 1) * m:n * m, 2] = False
+    true_safe[0:n * m:m, 3] = False
+    true_safe[0:m, 4] = False
+    return true_safe
+
+
+def dynamics(self, states, action):
+    """
+    Dynamics of the system
+    The function computes the one time step dynamic evolution of the system
+    for any number of initial state and for one given action
+
+    Parameters
+    ----------
+    states: np.array
+        Two dimensional array. Each row contains the (x,y) coordinates of
+        the starting points we want to compute the evolution for
+    action: int
+        Control action (1 = up, 2 = right, 3 = down, 4 = left)
+
+    Returns
+    -------
+    next_states: np.array
+        Two dimensional array. Each row contains the (x,y) coordinates
+        of the state that results from applying action to the corresponding
+        row of the input states
+    """
+    n, m = self.world_shape
+    if states.ndim == 1:
+        states = states.reshape(1, 2)
+    next_states = np.copy(states)
+    if action == 1:
+        next_states[:, 1] += 1
+        next_states[next_states[:, 1] > m - 1, 1] = m - 1
+    elif action == 2:
+        next_states[:, 0] += 1
+        next_states[next_states[:, 0] > n - 1, 0] = n - 1
+    elif action == 3:
+        next_states[:, 1] -= 1
+        next_states[next_states[:, 1] < 0, 1] = 0
+    elif action == 4:
+        next_states[:, 0] -= 1
+        next_states[next_states[:, 0] < 0, 0] = 0
+    else:
+        raise ValueError("Unknown action")
+    return next_states
+
+
+def compute_true_safe_set(self):
+    """
+    Computes the safe set given a perfect knowledge of the map
+
+    Returns
+    -------
+    true_safe: np.array
+        Boolean array n_states x (n_actions + 1).
+    """
+
+    # Initialize
+    true_safe = np.empty_like(self.S, dtype=bool)
+
+    # All true states are safe
+    true_safe[:, 0] = True
+
+    # TODO: This should be a function that takes mean and variance (in
+    # TODO: this case 0) and returns the safety matrix. Then we can use the
+    # TODO: same function in `update_confidence_intervals(.)`
+    # Compute safe (s, a) pairs
+    for action in range(1, self.S.shape[1]):
+        next_mat_ind = self.dynamics(self.grid_index, action)
+        next_vec_ind = mat2vec(next_mat_ind, self.world_shape)
+        true_safe[:, action] = ((self.altitudes -
+                                 self.altitudes[next_vec_ind]) /
+                                self.step_size[0]) >= self.h
+
+    # (s, a) pairs that lead out of boundaries are not safe
+    n, m = self.world_shape
+    true_safe[m - 1:m * (n + 1) - 1:m, 1] = False
+    true_safe[(n - 1) * m:n * m, 2] = False
+    true_safe[0:n * m:m, 3] = False
+    true_safe[0:m, 4] = False
+    return true_safe
+
+
+def compute_true_S_hat(self):
+    """
+    Computes the safe set with reachability and recovery properties
+    given a perfect knowledge of the map
+
+    Returns
+    -------
+    true_safe: np.array
+        Boolean array n_states x (n_actions + 1).
+    """
+    # Initialize
+    true_S_hat = np.zeros_like(self.S, dtype=bool)
+    self.reach[:] = self.S_hat
+    self.ret[:] = self.S_hat
+
+    # Substitute S with true S for update_reachable_set and update_return_set methods
+    tmp = np.copy(self.S)
+    self.S[:] = self.true_S
+
+    # Reachable and recovery set
+    while self.update_reachable_set():
+        pass
+    while self.update_return_set():
+        pass
+
+    # Points are either in S_hat or in the intersection of reachable and
+    #  recovery sets
+    true_S_hat[:] = np.logical_or(self.S_hat,
+                                  np.logical_and(self.ret, self.reach))
+
+    # Reset value of S
+    self.S[:] = tmp
+    return true_S_hat
+
+
+def dynamics_vec_ind(self, states_vec_ind, action):
+    """
+    Dynamic evolution of the system defined in vector representation of
+    the states
+
+    Parameters
+    ----------
+    states_vec_ind: np.array
+        Contains all the vector indexes of the states we want to compute
+        the dynamic evolution for
+    action: int
+        action performed by the agent
+
+    Returns
+    -------
+    next_states_vec_ind: np.array
+        vector index of states resulting from applying the action given
+        as input to the array of starting points given as input
+    """
+    n, m = self.world_shape
+    next_states_vec_ind = np.copy(states_vec_ind)
+    if action == 1:
+        next_states_vec_ind[:] = states_vec_ind + 1
+        condition = np.mod(next_states_vec_ind, m) == 0
+        next_states_vec_ind[condition] = states_vec_ind[condition]
+    elif action == 2:
+        next_states_vec_ind[:] = states_vec_ind + m
+        condition = next_states_vec_ind >= m * n
+        next_states_vec_ind[condition] = states_vec_ind[condition]
+    elif action == 3:
+        next_states_vec_ind[:] = states_vec_ind - 1
+        condition = np.mod(states_vec_ind, m) == 0
+        next_states_vec_ind[condition] = states_vec_ind[condition]
+    elif action == 4:
+        next_states_vec_ind[:] = states_vec_ind - m
+        condition = next_states_vec_ind <= -1
+        next_states_vec_ind[condition] = states_vec_ind[condition]
+    else:
+        raise ValueError("Unknown action")
+    return next_states_vec_ind
