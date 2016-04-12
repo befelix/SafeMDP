@@ -84,10 +84,6 @@ class SafeMDP(object):
         self.S_hat0 = self.S_hat.copy()
         self.initial_nodes = self.S_hat0[:, 0].nonzero()[0].tolist()
 
-        # Target
-        self.target_state = np.empty(2, dtype=int)
-        self.target_action = np.empty(1, dtype=int)
-
         # Confidence intervals
         self.l = np.empty(self.S.shape, dtype=float)
         self.u = np.empty(self.S.shape, dtype=float)
@@ -212,6 +208,13 @@ class SafeMDP(object):
         """
         Compute the next target (s, a) to sample (highest uncertainty within
         G or S_hat)
+
+        Returns
+        -------
+        node: int
+            The next node to sample
+        action: int
+            The next action to sample
         """
         if np.any(self.G):
             # Extract elements in G
@@ -236,8 +239,7 @@ class SafeMDP(object):
             # Find   max uncertainty
             max_id = np.argmax(w)
 
-        self.target_state = expander_id[0][max_id]
-        self.target_action = expander_id[1][max_id]
+        return expander_id[0][max_id], expander_id[1][max_id]
 
 
 def states_to_nodes(states, step_size):

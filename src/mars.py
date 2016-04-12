@@ -116,8 +116,8 @@ for index, length in enumerate(lengthScale):
     t = time.time()
     for i in range(50):
         x.update_sets()
-        x.target_sample()
-        x.add_observation(x.target_state, x.target_action)
+        next_sample = x.target_sample()
+        x.add_observation(*next_sample)
         # print (x.target_state, x.target_action)
         # print(i)
         print(np.any(x.G))
