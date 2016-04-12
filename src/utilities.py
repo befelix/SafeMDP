@@ -474,12 +474,18 @@ def compute_true_safe_set(world_shape, altitude, h):
     true_safe = np.zeros((world_shape[0] * world_shape[1], 5), dtype=np.bool)
 
     altitude_grid = altitude.reshape(world_shape)
+
+    # Reshape so that first dimensions are actions, the rest is the grid world.
     safe_grid = true_safe.T.reshape((5,) + world_shape)
 
+    # Height difference (next height - current height) --> positive if downhill
     right_diff = altitude_grid[:, :-1] - altitude_grid[:, 1:]
     down_diff = altitude_grid[:-1, :] - altitude_grid[1:, :]
 
+    # State are always safe
     true_safe[:, 0] = True
+
+    # Going in the opposite direction
     safe_grid[1, :, :-1] = right_diff >= h
     safe_grid[2, :-1, :] = down_diff >= h
     safe_grid[3, :, 1:] = -right_diff >= h
