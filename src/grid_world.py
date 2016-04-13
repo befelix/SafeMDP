@@ -130,6 +130,8 @@ def compute_S_hat0(s, world_shape, n_actions, altitudes, step_size, h):
     if not np.isnan(s):
         S_hat[s, 0] = True
         valid_initial_seed = False
+        vertical = False
+        horizontal = False
         altitude_prev = altitudes[s]
         if not isinstance(s, np.ndarray):
             s = np.array([s])
@@ -146,13 +148,19 @@ def compute_S_hat0(s, world_shape, n_actions, altitudes, step_size, h):
                 S_hat[s, action] = True
                 S_hat[next_vec_ind, 0] = True
                 S_hat[next_vec_ind, reverse_action(action)] = True
-                valid_initial_seed = True
+                if action == 1 or action == 3:
+                    vertical = True
+                if action == 2 or action == 4:
+                    horizontal = True
+
+        if vertical and horizontal:
+            valid_initial_seed = True
 
         if valid_initial_seed:
             return S_hat
         else:
             print ("No valid initial seed starting from this state")
-            S_hat[s, 0] = False
+            S_hat[:] = False
             return S_hat
 
     # If an explicit initial state is not given
