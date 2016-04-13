@@ -138,7 +138,7 @@ class ReachableSetTest(unittest.TestCase):
         self.safe_set[:] = True
 
     def _check(self):
-        reach = reachable_set(self.graph, [0], self.safe_set)
+        reach = reachable_set(self.graph, [0])
         assert_equal(reach[:, 0], self.true)
 
     def test_all_safe(self):
@@ -175,13 +175,13 @@ class ReachableSetTest(unittest.TestCase):
         self.safe_set[2, 2] = False
         self.true[:] = [1, 1, 1, 0, 0]
         out = np.zeros_like(self.safe_set)
-        reachable_set(self.graph, [0], self.safe_set, out=out)
+        reachable_set(self.graph, [0], out=out)
         assert_equal(out[:, 0], self.true)
 
     def test_error(self):
         """Check error condition"""
         with assert_raises(AttributeError):
-            reachable_set(self.graph, [], self.safe_set)
+            reachable_set(self.graph, [])
 
 
 class ReturnableSetTest(unittest.TestCase):
@@ -213,7 +213,7 @@ class ReturnableSetTest(unittest.TestCase):
         self.safe_set[:] = True
 
     def _check(self):
-        ret = returnable_set(self.graph, self.graph_rev, [0], self.safe_set)
+        ret = returnable_set(self.graph, self.graph_rev, [0])
         assert_equal(ret[:, 0], self.true)
 
     def test_all_safe(self):
@@ -250,13 +250,13 @@ class ReturnableSetTest(unittest.TestCase):
         self.safe_set[1, 1] = False
         self.true[:] = [1, 0, 1, 0, 0]
         out = np.zeros_like(self.safe_set)
-        returnable_set(self.graph, self.graph_rev, [0], self.safe_set, out=out)
+        returnable_set(self.graph, self.graph_rev, [0], out=out)
         assert_equal(out[:, 0], self.true)
 
     def test_error(self):
         """Check error condition"""
         with assert_raises(AttributeError):
-            reachable_set(self.graph, [], self.safe_set)
+            reachable_set(self.graph, [])
 
 
 class GridWorldGraphTest(unittest.TestCase):
