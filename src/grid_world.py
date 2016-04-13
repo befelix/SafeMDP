@@ -238,10 +238,14 @@ def compute_true_S_hat(graph, safe_set, initial_nodes, reverse_graph=None):
     true_safe: np.array
         Boolean array n_states x (n_actions + 1).
     """
+    graph = graph.copy()
+    link_graph_and_safe_set(graph, safe_set)
     if reverse_graph is None:
         reverse_graph = graph.reverse()
-    reach = reachable_set(graph, initial_nodes, safe_set)
-    return returnable_set(graph, reverse_graph, initial_nodes, reach)
+    reach = reachable_set(graph, initial_nodes)
+    ret = returnable_set(graph, reverse_graph, initial_nodes)
+    ret &= reach
+    return ret
 
 
 class GridWorld(SafeMDP):

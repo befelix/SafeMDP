@@ -41,11 +41,13 @@ class SafeMDP(object):
     def compute_S_hat(self):
         """Compute the safely reachable set given the current safe_set."""
         self.reach[:] = False
-        reachable_set(self.graph, self.initial_nodes, self.S, out=self.reach)
+        reachable_set(self.graph, self.initial_nodes, out=self.reach)
 
         self.S_hat[:] = False
         returnable_set(self.graph, self.graph_reverse, self.initial_nodes,
-                       self.reach, out=self.S_hat)
+                       out=self.S_hat)
+
+        self.S_hat &= self.reach
 
     def add_gp_observations(self, x_new, y_new):
         """Add observations to the gp mode."""
