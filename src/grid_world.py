@@ -1,3 +1,5 @@
+from __future__ import division, print_function
+
 import networkx as nx
 import numpy as np
 from matplotlib import pyplot as plt
@@ -8,8 +10,9 @@ from src.SafeMDP_class import (reachable_set, returnable_set, SafeMDP,
                                link_graph_and_safe_set)
 
 
-__all__ = ['compute_true_safe_set', 'compute_true_S_hat', 'compute_S_hat0', 'grid_world_graph',
-           'grid', 'GridWorld', 'draw_gp_sample']
+__all__ = ['compute_true_safe_set', 'compute_true_S_hat', 'compute_S_hat0',
+           'grid_world_graph', 'grid', 'GridWorld', 'draw_gp_sample',
+           'states_to_nodes', 'nodes_to_states']
 
 
 def compute_true_safe_set(world_shape, altitude, h):
@@ -499,14 +502,16 @@ class GridWorld(SafeMDP):
         return expander_id[0][max_id], expander_id[1][max_id]
 
 
-def states_to_nodes(states, step_size):
+def states_to_nodes(states, world_shape, step_size):
     """Convert physical states to node numbers.
 
     Parameters
     ----------
     states: np.array
         States with physical coordinates
-    step_size: np.array
+    world_shape: tuple
+        The size of the grid_world
+    step_size: tuple
         The step size of the grid world
 
     Returns
@@ -515,17 +520,19 @@ def states_to_nodes(states, step_size):
         The node indices corresponding to the states
     """
     states = np.asanyarray(states)
-    step_size = np.asanyarray(step_size)
-    return np.rint(states / step_size).astype(np.int)
+    node_indices = np.rint(states / step_size).astype(np.int)
+    return node_indices[:, 1] + world_shape[1] * node_indices[:, 0]
 
 
-def nodes_to_states(nodes, step_size):
+def nodes_to_states(nodes, world_shape, step_size):
     """Convert node numbers to physical states.
 
     Parameters
     ----------
     nodes: np.array
         Node indices of the grid world
+    world_shape: tuple
+        The size of the grid_world
     step_size: np.array
         Teh step size of the grid world
 
@@ -536,7 +543,8 @@ def nodes_to_states(nodes, step_size):
     """
     nodes = np.asanyarray(nodes)
     step_size = np.asanyarray(step_size)
-    return nodes * step_size
+    return np.vstack((nodes // world_shape[1],
+                      nodes % world_shape[1])).T * step_size
 
 
 def grid(world_shape, step_size):
@@ -557,13 +565,8 @@ def grid(world_shape, step_size):
     states_coord: np.array
         (n*m) x 2 array containing the coordinates of the states
     """
-    # Create grid of indices
-    n, m = world_shape
-    xx, yy = np.meshgrid(np.arange(n),
-                         np.arange(m),
-                         indexing='ij')
-    states_ind = np.vstack((xx.flatten(), yy.flatten())).T
-    return nodes_to_states(states_ind, step_size)
+    nodes = np.arange(0, world_shape[0] * world_shape[1])
+    return nodes_to_states(nodes, world_shape, step_size)
 
 
 def draw_gp_sample(kernel, world_shape, step_size):
