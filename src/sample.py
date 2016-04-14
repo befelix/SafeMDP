@@ -11,7 +11,7 @@ from src.grid_world import (compute_true_safe_set, compute_S_hat0,
                             compute_true_S_hat)
 
 # Define world
-world_shape = (40, 40)
+world_shape = (20, 20)
 step_size = (0.5, 0.5)
 
 # Define GP

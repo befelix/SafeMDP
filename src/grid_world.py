@@ -376,22 +376,22 @@ class GridWorld(SafeMDP):
                                           full_cov=False)
             s_up = self.beta * np.sqrt(s_up)
 
-            self.l[self._prev_up, 1, None] = -mu_up - s_up
-            self.u[self._prev_up, 1, None] = -mu_up + s_up
+            self.l[self._prev_up, 1, None] = mu_up - s_up
+            self.u[self._prev_up, 1, None] = mu_up + s_up
 
-            self.l[self._next_up, 3, None] = mu_up - s_up
-            self.u[self._next_up, 3, None] = mu_up + s_up
+            self.l[self._next_up, 3, None] = -mu_up - s_up
+            self.u[self._next_up, 3, None] = -mu_up + s_up
 
             # Actions left and right
             mu_right, s_right = self.gp.predict(self._mat_right,
                                                 kern=DifferenceKernel(
                                                     self.gp.kern), full_cov=False)
             s_right = self.beta * np.sqrt(s_right)
-            self.l[self._prev_right, 2, None] = -mu_right - s_right
-            self.u[self._prev_right, 2, None] = -mu_right + s_right
+            self.l[self._prev_right, 2, None] = mu_right - s_right
+            self.u[self._prev_right, 2, None] = mu_right + s_right
 
-            self.l[self._next_right, 4, None] = mu_right - s_right
-            self.u[self._next_right, 4, None] = mu_right + s_right
+            self.l[self._next_right, 4, None] = -mu_right - s_right
+            self.u[self._next_right, 4, None] = -mu_right + s_right
 
     def compute_expanders(self):
         """Compute the expanders based on the current estimate of S_hat."""
