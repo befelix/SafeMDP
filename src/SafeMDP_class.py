@@ -124,6 +124,7 @@ def reachable_set(graph, initial_nodes, out=None):
                 if not visited[next_node, 0]:
                     stack.append(next_node)
                     visited[next_node, 0] = True
+                    
     if out is None:
         return visited
 
@@ -181,5 +182,6 @@ def returnable_set(graph, reverse_graph, initial_nodes, out=None):
                 if not visited[prev_node, 0]:
                     stack.append(prev_node)
                     visited[prev_node, 0] = True
+
     if out is None:
         return visited
