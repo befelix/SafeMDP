@@ -295,10 +295,13 @@ class GridWorld(SafeMDP):
     noise: float
            Standard deviation of the measurement noise
     L: float
-       Lipschitz constant to compute expanders
+        Lipschitz constant to compute expanders
+    update_dist: int
+        Distance in unweighted graph used for confidence interval update.
+        A sample will only influence other nodes within this distance.
     """
     def __init__(self, gp, world_shape, step_size, beta, altitudes, h, S0,
-                 S_hat0, L):
+                 S_hat0, L, update_dist):
 
         # Safe set
         self.S = S0
@@ -309,6 +312,7 @@ class GridWorld(SafeMDP):
         self.altitudes = altitudes
         self.world_shape = world_shape
         self.step_size = step_size
+        self.update_dist = update_dist
 
         # Grids for the map
         self.coord = grid(self.world_shape, self.step_size)
@@ -366,6 +370,98 @@ class GridWorld(SafeMDP):
 
             self.u[:, [1, 2]] = -mu[:, ::-1] + s[:, ::-1]
             self.u[:, [3, 4]] = mu[:, ::-1] + s[:, ::-1]
+
+        elif self.update_dist > 0:
+            # Initialize to unsafe
+            self.l[:] = self.u[:] = self.h - 1
+
+            # States are always safe
+            self.l[:, 0] = self.u[:, 0] = self.h
+
+            last_states = self.gp.X[-2:]
+            last_nodes = states_to_nodes(last_states, self.world_shape,
+                                         self.step_size)
+
+            # Create subgraph around last samples with given radius
+            subgraph1 = nx.ego_graph(self.graph, last_nodes[0], radius=self.update_dist,
+                                     undirected=True)
+            subgraph2 = nx.ego_graph(self.graph, last_nodes[1], radius=self.update_dist,
+                                     undirected=True)
+
+            # Extract nodes to be updated
+            update_nodes = np.union1d(subgraph1.nodes(), subgraph2.nodes())
+
+            update_states = nodes_to_states(update_nodes, self.world_shape,
+                                            self.step_size)
+            # Depending on where last sample was, size of subgraph varies
+            if update_states.shape[0] % 2 == 0:
+
+                # rearange states so that they can be used for difference prediction
+                # UP/DOWN movements
+                mat_up = np.reshape(update_states, (update_states.shape[0] / 2, 4))
+                mat_up = mat_up[mat_up[:, 0] == mat_up[:, 2]]
+                mat_up2 = np.reshape(update_states[1:-1], ((update_states.shape[0]-1)/2, 4))
+                mat_up2 = mat_up2[mat_up2[:, 0] == mat_up2[:, 2]]
+                mat_up = np.vstack((mat_up, mat_up2))
+                # Get indices of states to be updated
+                prev_up = states_to_nodes(mat_up[:, 0:2], self.world_shape, self.step_size)
+                next_up = states_to_nodes(mat_up[:, 2:4], self.world_shape, self.step_size)
+
+                # LEFT/RIGHT movements
+                keys = np.lexsort((update_states[:, 0], update_states[:, 1]))
+                update_states = update_states[keys]
+                mat_right = np.reshape(update_states, (update_states.shape[0] / 2, 4))
+                mat_right = mat_right[mat_right[:, 1] == mat_right[:, 3]]
+                mat_right2 = np.reshape(update_states[1:-1], ((update_states.shape[0]-1)/2, 4))
+                mat_right2 = mat_right2[mat_right2[:, 1] == mat_right2[:, 3]]
+                mat_right = np.vstack((mat_right, mat_right2))
+                # Get indices of states to be updated
+                prev_right = states_to_nodes(mat_right[:, 0:2], self.world_shape, self.step_size)
+                next_right = states_to_nodes(mat_right[:, 2:4], self.world_shape, self.step_size)
+            else:
+                # rearange states so that they can be used for difference prediction
+                # UP/DOWN movements
+                mat_up = np.reshape(update_states[1:], ((update_states.shape[0] - 1) / 2, 4))
+                mat_up = mat_up[mat_up[:, 0] == mat_up[:, 2]]
+                mat_up2 = np.reshape(update_states[:-1], ((update_states.shape[0] - 1) / 2, 4))
+                mat_up2 = mat_up2[mat_up2[:, 0] == mat_up2[:, 2]]
+                mat_up = np.vstack((mat_up, mat_up2))
+                prev_up = states_to_nodes(mat_up[:, 0:2], self.world_shape, self.step_size)
+                next_up = states_to_nodes(mat_up[:, 2:4], self.world_shape, self.step_size)
+
+                # LEFT/RIGHT movements
+                keys = np.lexsort((update_states[:, 0], update_states[:, 1]))
+                update_states = update_states[keys]
+                mat_right = np.reshape(update_states[1:], ((update_states.shape[0] - 1) / 2, 4))
+                mat_right = mat_right[mat_right[:, 1] == mat_right[:, 3]]
+                mat_right2 = np.reshape(update_states[:-1], ((update_states.shape[0] - 1) / 2, 4))
+                mat_right2 = mat_right2[mat_right2[:, 1] == mat_right2[:, 3]]
+                mat_right = np.vstack((mat_right, mat_right2))
+                prev_right = states_to_nodes(mat_right[:, 0:2], self.world_shape, self.step_size)
+                next_right = states_to_nodes(mat_right[:, 2:4], self.world_shape, self.step_size)
+
+            # Update confidence for nodes around last sample
+            mu_up, s_up = self.gp.predict(mat_up,
+                                          kern=DifferenceKernel(self.gp.kern),
+                                          full_cov=False)
+            s_up = self.beta * np.sqrt(s_up)
+
+            self.l[prev_up, 1, None] = mu_up - s_up
+            self.u[prev_up, 1, None] = mu_up + s_up
+
+            self.l[next_up, 3, None] = -mu_up - s_up
+            self.u[next_up, 3, None] = -mu_up + s_up
+
+            mu_right, s_right = self.gp.predict(mat_right,
+                                                kern=DifferenceKernel(
+                                                    self.gp.kern), full_cov=False)
+            s_right = self.beta * np.sqrt(s_right)
+
+            self.l[prev_right, 2, None] = mu_right - s_right
+            self.u[prev_right, 2, None] = mu_right + s_right
+
+            self.l[next_right, 4, None] = -mu_right - s_right
+            self.u[next_right, 4, None] = -mu_right + s_right
         else:
             # Initialize to unsafe
             self.l[:] = self.u[:] = self.h - 1
