@@ -301,7 +301,7 @@ class GridWorld(SafeMDP):
         A sample will only influence other nodes within this distance.
     """
     def __init__(self, gp, world_shape, step_size, beta, altitudes, h, S0,
-                 S_hat0, L, update_dist):
+                 S_hat0, L, update_dist=0):
 
         # Safe set
         self.S = S0
