@@ -106,7 +106,7 @@ def compute_S_hat0(s, world_shape, n_actions, altitudes, step_size, h):
     ---------
     s: int or nan
         Vector index of the state where we start computing the safe seed
-       from. If it is equal to nan, a state is chosen at random
+        from. If it is equal to nan, a state is chosen at random
     world_shape: tuple
         Size of the grid world (rows, columns)
     n_actions: int
@@ -372,73 +372,40 @@ class GridWorld(SafeMDP):
             self.u[:, [3, 4]] = mu[:, ::-1] + s[:, ::-1]
 
         elif self.update_dist > 0:
-            # Initialize to unsafe
-            self.l[:] = self.u[:] = self.h - 1
-
             # States are always safe
             self.l[:, 0] = self.u[:, 0] = self.h
 
+            # Extract last two sampled states in the grid
             last_states = self.gp.X[-2:]
             last_nodes = states_to_nodes(last_states, self.world_shape,
                                          self.step_size)
 
-            # Create subgraph around last samples with given radius
-            subgraph1 = nx.ego_graph(self.graph, last_nodes[0], radius=self.update_dist,
-                                     undirected=True)
-            subgraph2 = nx.ego_graph(self.graph, last_nodes[1], radius=self.update_dist,
-                                     undirected=True)
-
             # Extract nodes to be updated
-            update_nodes = np.union1d(subgraph1.nodes(), subgraph2.nodes())
+            nodes1 = nx.single_source_shortest_path(self.graph, last_nodes[0],
+                                                    self.update_dist).keys()
+            nodes2 = nx.single_source_shortest_path(self.graph, last_nodes[1],
+                                                    self.update_dist).keys()
+            update_nodes = np.union1d(nodes1, nodes2)
+            subgraph = self.graph.subgraph(update_nodes)
 
-            update_states = nodes_to_states(update_nodes, self.world_shape,
-                                            self.step_size)
-            # Depending on where last sample was, size of subgraph varies
-            if update_states.shape[0] % 2 == 0:
+            # Sort states to be updated according to actions
+            prev_up = []
+            next_up = []
+            prev_right = []
+            next_right = []
 
-                # rearange states so that they can be used for difference prediction
-                # UP/DOWN movements
-                mat_up = np.reshape(update_states, (update_states.shape[0] / 2, 4))
-                mat_up = mat_up[mat_up[:, 0] == mat_up[:, 2]]
-                mat_up2 = np.reshape(update_states[1:-1], ((update_states.shape[0]-1)/2, 4))
-                mat_up2 = mat_up2[mat_up2[:, 0] == mat_up2[:, 2]]
-                mat_up = np.vstack((mat_up, mat_up2))
-                # Get indices of states to be updated
-                prev_up = states_to_nodes(mat_up[:, 0:2], self.world_shape, self.step_size)
-                next_up = states_to_nodes(mat_up[:, 2:4], self.world_shape, self.step_size)
+            for node1, node2, act in subgraph.edges_iter(data='action'):
+                if act == 2:
+                    prev_right.append(node1)
+                    next_right.append(node2)
+                elif act == 1:
+                    prev_up.append(node1)
+                    next_up.append(node2)
 
-                # LEFT/RIGHT movements
-                keys = np.lexsort((update_states[:, 0], update_states[:, 1]))
-                update_states = update_states[keys]
-                mat_right = np.reshape(update_states, (update_states.shape[0] / 2, 4))
-                mat_right = mat_right[mat_right[:, 1] == mat_right[:, 3]]
-                mat_right2 = np.reshape(update_states[1:-1], ((update_states.shape[0]-1)/2, 4))
-                mat_right2 = mat_right2[mat_right2[:, 1] == mat_right2[:, 3]]
-                mat_right = np.vstack((mat_right, mat_right2))
-                # Get indices of states to be updated
-                prev_right = states_to_nodes(mat_right[:, 0:2], self.world_shape, self.step_size)
-                next_right = states_to_nodes(mat_right[:, 2:4], self.world_shape, self.step_size)
-            else:
-                # rearange states so that they can be used for difference prediction
-                # UP/DOWN movements
-                mat_up = np.reshape(update_states[1:], ((update_states.shape[0] - 1) / 2, 4))
-                mat_up = mat_up[mat_up[:, 0] == mat_up[:, 2]]
-                mat_up2 = np.reshape(update_states[:-1], ((update_states.shape[0] - 1) / 2, 4))
-                mat_up2 = mat_up2[mat_up2[:, 0] == mat_up2[:, 2]]
-                mat_up = np.vstack((mat_up, mat_up2))
-                prev_up = states_to_nodes(mat_up[:, 0:2], self.world_shape, self.step_size)
-                next_up = states_to_nodes(mat_up[:, 2:4], self.world_shape, self.step_size)
-
-                # LEFT/RIGHT movements
-                keys = np.lexsort((update_states[:, 0], update_states[:, 1]))
-                update_states = update_states[keys]
-                mat_right = np.reshape(update_states[1:], ((update_states.shape[0] - 1) / 2, 4))
-                mat_right = mat_right[mat_right[:, 1] == mat_right[:, 3]]
-                mat_right2 = np.reshape(update_states[:-1], ((update_states.shape[0] - 1) / 2, 4))
-                mat_right2 = mat_right2[mat_right2[:, 1] == mat_right2[:, 3]]
-                mat_right = np.vstack((mat_right, mat_right2))
-                prev_right = states_to_nodes(mat_right[:, 0:2], self.world_shape, self.step_size)
-                next_right = states_to_nodes(mat_right[:, 2:4], self.world_shape, self.step_size)
+            mat_up = np.hstack((self.coord[prev_up, :],
+                                self.coord[next_up, :]))
+            mat_right = np.hstack((self.coord[prev_right, :],
+                                   self.coord[next_right, :]))
 
             # Update confidence for nodes around last sample
             mu_up, s_up = self.gp.predict(mat_up,
@@ -462,6 +429,7 @@ class GridWorld(SafeMDP):
 
             self.l[next_right, 4, None] = -mu_right - s_right
             self.u[next_right, 4, None] = -mu_right + s_right
+
         else:
             # Initialize to unsafe
             self.l[:] = self.u[:] = self.h - 1
@@ -517,7 +485,6 @@ class GridWorld(SafeMDP):
         self.S[:] = self.l >= self.h
 
         self.compute_S_hat()
-
         self.compute_expanders()
 
     def plot_S(self, safe_set, action=0):
@@ -630,7 +597,7 @@ def nodes_to_states(nodes, world_shape, step_size):
     world_shape: tuple
         The size of the grid_world
     step_size: np.array
-        Teh step size of the grid world
+        The step size of the grid world
 
     Returns
     -------
