@@ -34,7 +34,7 @@ class SafeMDP(object):
         self.reach = np.empty(safe_set_size, dtype=np.bool)
         self.G = np.empty(safe_set_size, dtype=np.bool)
 
-        self.S_hat = S_hat0
+        self.S_hat = S_hat0.copy()
         self.S_hat0 = self.S_hat.copy()
         self.initial_nodes = self.S_hat0[:, 0].nonzero()[0].tolist()
 
