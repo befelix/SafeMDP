@@ -1,12 +1,12 @@
-from __future__ import division, print_function
+from __future__ import division, print_function, absolute_import
 
 import networkx as nx
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.spatial.distance import cdist
 
-from src import DifferenceKernel
-from src.SafeMDP_class import (reachable_set, returnable_set, SafeMDP,
+from .utilities import DifferenceKernel
+from .SafeMDP_class import (reachable_set, returnable_set, SafeMDP,
                                link_graph_and_safe_set)
 
 
