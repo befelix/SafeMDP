@@ -145,7 +145,8 @@ for index_l, length in enumerate(lengthScale):
         x.gp.set_XY(x.gp.X[n_samples:, :], x.gp.Y[n_samples:])
 
         # True S_hat for misclassification
-        true_S = compute_true_safe_set(x.world_shape, x.altitudes, x.h)
+        h_hard = -np.tan(np.pi / 6.) * step_size[0]
+        true_S = compute_true_safe_set(x.world_shape, x.altitudes, h_hard)
         true_S_hat = compute_true_S_hat(x.graph, true_S, x.initial_nodes)
 
         # true S_hat with statistical error for completeness
