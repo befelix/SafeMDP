@@ -17,6 +17,10 @@ print(sys.version)
 plot_map = False
 plot_performance = False
 plot_completeness = False
+plot_initial_gp = False
+plot_exploration_gp = False
+plot = plot_map or plot_performance or plot_completeness or plot_initial_gp \
+       or plot_exploration_gp
 save_performance = False
 
 # Extract and plot Mars data
@@ -53,7 +57,6 @@ altitudes[:] = altitudes - mean_val
 if plot_map:
     plt.imshow(altitudes.T, origin="lower", interpolation="nearest")
     plt.colorbar()
-    plt.show()
 altitudes = altitudes.flatten()
 
 # Define coordinates
@@ -79,7 +82,7 @@ S_hat0 = compute_S_hat0(77, world_shape, 4, altitudes,
                         step_size, h) # 113 when you go back to 60 by 60 map
 
 # Initialize for performance
-time_steps = 20
+time_steps = 100
 lengthScale = np.linspace(5., 7., num=2)
 noise = np.linspace(0.001, 0.11, num=2)
 parameters_shape = (noise.size, lengthScale.size)
@@ -87,10 +90,12 @@ parameters_shape = (noise.size, lengthScale.size)
 size_S_hat = np.empty(parameters_shape, dtype=int)
 true_S_hat_minus_S_hat = np.empty(parameters_shape, dtype=float)
 S_hat_minus_true_S_hat = np.empty(parameters_shape, dtype=int)
-completeness = np.empty(parameters_shape+ (time_steps,), dtype=float)
+completeness = np.empty(parameters_shape + (time_steps,), dtype=float)
+dist_from_confidence_interval = np.empty(parameters_shape + (altitudes.size,),
+                                         dtype=float)
 
 # Initialize data for GP
-n_samples = 1
+n_samples = 300
 ind = np.random.choice(range(altitudes.size), n_samples)
 X = coord[ind, :]
 Y = altitudes[ind].reshape(n_samples, 1)
@@ -104,6 +109,22 @@ for index_l, length in enumerate(lengthScale):
                               variance=30.)
         lik = GPy.likelihoods.Gaussian(variance=sigma_n ** 2)
         gp = GPy.core.GP(X, Y, kernel, lik)
+
+        if plot_initial_gp:
+            mu, var = gp.predict(coord, include_likelihood=False)
+            sigma = beta * np.sqrt(var)
+            l = np.squeeze(mu - sigma)
+            u = np.squeeze(mu + sigma)
+            fig = plt.figure()
+            title = "{0} noise, {1} lengthscale".format(sigma_n, length)
+            plt.title(title)
+
+            ax2 = fig.add_subplot(122, projection='3d')
+            ax2.plot_trisurf(coord[:, 0], coord[:, 1], altitudes)
+
+            ax1 = fig.add_subplot(121, projection='3d', sharez=ax2)
+            ax1.plot_trisurf(coord[:, 0], coord[:, 1], np.squeeze(mu), alpha=0.5)
+            ax1.scatter(X[:, 0], X[:, 1], Y, depthshade=False, s=40)
 
         # Define SafeMDP object
         x = GridWorld(gp, world_shape, step_size, beta, altitudes, h, S0,
@@ -155,6 +176,33 @@ for index_l, length in enumerate(lengthScale):
         print(str(time.time() - t) + "seconds elapsed")
         print(sigma_n, length)
 
+        mu, var = x.gp.predict(x.coord, include_likelihood=False)
+        sigma = x.beta * np.sqrt(var)
+        l = np.squeeze(mu - sigma)
+        u = np.squeeze(mu + sigma)
+
+        if plot_exploration_gp:
+            fig = plt.figure()
+            title = "{0} noise, {1} lengthscale".format(sigma_n, length)
+            plt.title(title)
+
+            ax2 = fig.add_subplot(122, projection='3d')
+            ax2.plot_trisurf(x.coord[:, 0], x.coord[:, 1], altitudes)
+
+            ax1 = fig.add_subplot(121, projection='3d',sharez=ax2)
+            ax1.plot_trisurf(x.coord[:, 0], x.coord[:, 1], np.squeeze(mu),
+                             alpha=0.5)
+            ax1.scatter(x.gp.X[:, 0], x.gp.X[:, 1], x.gp.Y)
+
+        # Below l
+        diff_l = altitudes - l
+        dist_from_confidence_interval[index_n, index_l, diff_l < 0] = diff_l[
+            diff_l < 0]
+
+        # Above u
+        diff_u = altitudes - u
+        dist_from_confidence_interval[index_n, index_l, diff_u > 0] = diff_u[
+            diff_u > 0]
         # Plot safe sets
         # x.plot_S(x.S_hat)
         # x.plot_S(x.S_hat)
@@ -188,8 +236,22 @@ if plot_performance:
     plt.xlabel("Lengthscale")
     plt.title(title)
 
-    if not plot_completeness:
-        plt.show()
+    for index_l, length in enumerate(lengthScale):
+        for index_n, sigma_n in enumerate(noise):
+            plt.figure()
+            max_value = np.max(dist_from_confidence_interval[index_n,
+                               index_l, :])
+            min_value = np.min(dist_from_confidence_interval[index_n,
+                               index_l, :])
+            limit = np.max([max_value, np.abs(min_value)])
+            plt.imshow(
+                np.reshape(dist_from_confidence_interval[index_n, index_l, :],
+                           x.world_shape).T, origin='lower',
+                interpolation='nearest', vmin=-limit, vmax=limit)
+            title = "noise {0} - lengthscale {1} - errors {2}".format(
+                sigma_n, length, S_hat_minus_true_S_hat[index_n, index_l])
+            plt.title(title)
+            plt.colorbar()
 
 if plot_completeness:
     for index_l, length in enumerate(lengthScale):
@@ -200,6 +262,8 @@ if plot_completeness:
             title = "noise {0} - lengthscale {1} - errors {2}".format(
                 sigma_n, length, S_hat_minus_true_S_hat[index_n, index_l])
             plt.title(title)
+
+if plot:
     plt.show()
 
 if save_performance:
