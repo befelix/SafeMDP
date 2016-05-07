@@ -24,7 +24,7 @@ plot = plot_map or plot_performance or plot_completeness or plot_initial_gp \
 save_performance = True
 
 # Extract and plot Mars data
-world_shape = (150, 42)#(60, 42)
+world_shape = (120, 70)#(60, 42)
 step_size = (1., 1.)
 gdal.UseExceptions()
 
@@ -46,8 +46,8 @@ band = ds.GetRasterBand(1)
 elevation = band.ReadAsArray()
 
 # Extract and shift interesting area
-startX = 2900  # 2960 2ith world_shape = (60, 60)
-startY = 1983  # Before it was 1965 with world_shape = [60, 60]
+startX = 2890  # 2960 2ith world_shape = (60, 60)
+startY = 1955  # Before it was 1965 with world_shape = [60, 60]
 altitudes = np.copy(elevation[startX:startX + world_shape[0],
                     startY:startY + world_shape[1]])
 mean_val = (np.max(altitudes) + np.min(altitudes)) / 2.
@@ -70,7 +70,7 @@ coord = np.vstack((xx.flatten(), yy.flatten())).T
 h = -np.tan(np.pi / 9. + np.pi / 36.) * step_size[0]
 
 # Lipschitz
-L = 0.0
+L = 0.2
 
 # Scaling factor for confidence interval
 beta = 2.
@@ -78,12 +78,16 @@ beta = 2.
 # Initialize safe sets
 S0 = np.zeros((np.prod(world_shape), 5), dtype=bool)
 S0[:, 0] = True
-S_hat0 = compute_S_hat0(2093, world_shape, 4, altitudes,
+starting_x = 60
+starting_y = 61
+start = starting_x * world_shape[1] + starting_y
+S_hat0 = compute_S_hat0(start, world_shape, 4, altitudes,
                         step_size, h) # 113 when you go back to 60 by 60 map
+#  or 2093 with (150, 42)
 
 # Initialize for performance
 time_steps = 600
-lengthScale = np.linspace(20., 7., num=1)
+lengthScale = np.linspace(22., 7., num=1)
 noise = np.linspace(0.05, 0.11, num=1)
 parameters_shape = (noise.size, lengthScale.size)
 
@@ -207,7 +211,7 @@ for index_l, length in enumerate(lengthScale):
         dist_from_confidence_interval[index_n, index_l, diff_l < 0] = diff_l[
             diff_l < 0]
         # Plot safe sets
-        x.plot_S(x.S_hat)
+        # x.plot_S(true_S_hat_epsilon)
         # x.plot_S(x.S_hat)
 
         size_S_hat[index_n, index_l] = np.sum(x.S_hat)
