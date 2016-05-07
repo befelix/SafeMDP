@@ -21,10 +21,10 @@ plot_initial_gp = False
 plot_exploration_gp = False
 plot = plot_map or plot_performance or plot_completeness or plot_initial_gp \
        or plot_exploration_gp
-save_performance = False
+save_performance = True
 
 # Extract and plot Mars data
-world_shape = (60, 42)
+world_shape = (150, 42)#(60, 42)
 step_size = (1., 1.)
 gdal.UseExceptions()
 
@@ -46,7 +46,7 @@ band = ds.GetRasterBand(1)
 elevation = band.ReadAsArray()
 
 # Extract and shift interesting area
-startX = 2960
+startX = 2900  # 2960 2ith world_shape = (60, 60)
 startY = 1983  # Before it was 1965 with world_shape = [60, 60]
 altitudes = np.copy(elevation[startX:startX + world_shape[0],
                     startY:startY + world_shape[1]])
@@ -73,29 +73,29 @@ h = -np.tan(np.pi / 9. + np.pi / 36.) * step_size[0]
 L = 0.0
 
 # Scaling factor for confidence interval
-beta = 3
+beta = 2.
 
 # Initialize safe sets
 S0 = np.zeros((np.prod(world_shape), 5), dtype=bool)
 S0[:, 0] = True
-S_hat0 = compute_S_hat0(77, world_shape, 4, altitudes,
+S_hat0 = compute_S_hat0(2093, world_shape, 4, altitudes,
                         step_size, h) # 113 when you go back to 60 by 60 map
 
 # Initialize for performance
-time_steps = 100
-lengthScale = np.linspace(5., 7., num=2)
-noise = np.linspace(0.001, 0.11, num=2)
+time_steps = 600
+lengthScale = np.linspace(20., 7., num=1)
+noise = np.linspace(0.05, 0.11, num=1)
 parameters_shape = (noise.size, lengthScale.size)
 
 size_S_hat = np.empty(parameters_shape, dtype=int)
 true_S_hat_minus_S_hat = np.empty(parameters_shape, dtype=float)
 S_hat_minus_true_S_hat = np.empty(parameters_shape, dtype=int)
 completeness = np.empty(parameters_shape + (time_steps,), dtype=float)
-dist_from_confidence_interval = np.empty(parameters_shape + (altitudes.size,),
+dist_from_confidence_interval = np.zeros(parameters_shape + (altitudes.size,),
                                          dtype=float)
 
 # Initialize data for GP
-n_samples = 300
+n_samples = 100
 ind = np.random.choice(range(altitudes.size), n_samples)
 X = coord[ind, :]
 Y = altitudes[ind].reshape(n_samples, 1)
@@ -105,8 +105,10 @@ for index_l, length in enumerate(lengthScale):
     for index_n, sigma_n in enumerate(noise):
 
         # Define and initialize GP
-        kernel = GPy.kern.RBF(input_dim=2, lengthscale=length,
-                              variance=30.)
+        # kernel = GPy.kern.RBF(input_dim=2, lengthscale=length,
+        #                       variance=100.)
+        kernel = GPy.kern.Matern52(input_dim=2, lengthscale=length,
+                                   variance=100.)
         lik = GPy.likelihoods.Gaussian(variance=sigma_n ** 2)
         gp = GPy.core.GP(X, Y, kernel, lik)
 
@@ -195,17 +197,17 @@ for index_l, length in enumerate(lengthScale):
                              alpha=0.5)
             ax1.scatter(x.gp.X[:, 0], x.gp.X[:, 1], x.gp.Y)
 
-        # Below l
-        diff_l = altitudes - l
-        dist_from_confidence_interval[index_n, index_l, diff_l < 0] = diff_l[
-            diff_l < 0]
-
         # Above u
         diff_u = altitudes - u
         dist_from_confidence_interval[index_n, index_l, diff_u > 0] = diff_u[
             diff_u > 0]
+
+        # Below l
+        diff_l = altitudes - l
+        dist_from_confidence_interval[index_n, index_l, diff_l < 0] = diff_l[
+            diff_l < 0]
         # Plot safe sets
-        # x.plot_S(x.S_hat)
+        x.plot_S(x.S_hat)
         # x.plot_S(x.S_hat)
 
         size_S_hat[index_n, index_l] = np.sum(x.S_hat)
@@ -273,4 +275,6 @@ if save_performance:
 
     np.savez(file_name, S_hat_minus_true_S_hat=S_hat_minus_true_S_hat,
              true_S_hat_minus_S_hat=true_S_hat_minus_S_hat,
-             completeness=completeness, lengthScale=lengthScale, noise=noise)
+             completeness=completeness, lengthScale=lengthScale, noise=noise,
+             dist_from_confidence_interval=dist_from_confidence_interval,
+             time_steps=time_steps, world_shape=world_shape)
