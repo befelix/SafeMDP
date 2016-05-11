@@ -10,6 +10,7 @@ import numpy as np
 from osgeo import gdal
 
 from src.grid_world import *
+from plot_utilities import *
 
 print(sys.version)
 
@@ -22,6 +23,7 @@ plot_exploration_gp = False
 plot = plot_map or plot_performance or plot_completeness or plot_initial_gp \
        or plot_exploration_gp
 save_performance = True
+plot_for_paper = False
 
 # Extract and plot Mars data
 world_shape = (120, 70)#(60, 42)
@@ -282,3 +284,10 @@ if save_performance:
              completeness=completeness, lengthScale=lengthScale, noise=noise,
              dist_from_confidence_interval=dist_from_confidence_interval,
              time_steps=time_steps, world_shape=world_shape)
+
+if plot_for_paper:
+    # Plot 2D for paper
+    plot_paper(altitudes, x.S_hat, world_shape)
+
+    # Plot 3D for paper
+    plot_paper(altitudes, x.S_hat, world_shape, surf=True, coord=coord)
