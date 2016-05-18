@@ -413,12 +413,10 @@ class GridWorld(SafeMDP):
                                           full_cov=False)
             s_up = self.beta * np.sqrt(s_up)
 
-            self.l[prev_up, 1, None] = np.where(mu_up - s_up > self.l[
-                prev_up, 1, None], mu_up - s_up, self.l[prev_up, 1,None])
+            self.l[prev_up, 1, None] = mu_up - s_up
             self.u[prev_up, 1, None] = mu_up + s_up
 
-            self.l[next_up, 3, None] = np.where(-mu_up - s_up > self.l[
-                prev_up, 3, None], -mu_up - s_up, self.l[prev_up, 3, None])
+            self.l[next_up, 3, None] = -mu_up - s_up
             self.u[next_up, 3, None] = -mu_up + s_up
 
             mu_right, s_right = self.gp.predict(mat_right,
@@ -426,14 +424,10 @@ class GridWorld(SafeMDP):
                                                     self.gp.kern), full_cov=False)
             s_right = self.beta * np.sqrt(s_right)
 
-            self.l[prev_right, 2, None] = np.where(mu_right - s_right >
-                self.l[prev_right, 2, None], mu_right - s_right, self.l[
-                prev_right, 2, None])
+            self.l[prev_right, 2, None] = mu_right - s_right
             self.u[prev_right, 2, None] = mu_right + s_right
 
-            self.l[next_right, 4, None] = np.where(-mu_right - s_right >
-                self.l[prev_right, 4, None], -mu_right - s_right, self.l[
-                prev_right, 4, None])
+            self.l[next_right, 4, None] = -mu_right - s_right
             self.u[next_right, 4, None] = -mu_right + s_right
 
         else:
@@ -488,7 +482,8 @@ class GridWorld(SafeMDP):
         Update the sets S, S_hat and G taking with the available observation
         """
         self.update_confidence_interval()
-        self.S[:] = self.l >= self.h
+        # self.S[:] = self.l >= self.h
+        self.S |= self.l >= self.h
 
         self.compute_S_hat()
         self.compute_expanders()
