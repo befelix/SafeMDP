@@ -44,7 +44,7 @@ def check_shortest_path(source, next_sample, G, h, altitudes):
 
 
 # Control plotting and saving
-plot_map = True
+plot_map = False
 plot_performance = False
 plot_completeness = False
 plot_initial_gp = False
@@ -220,10 +220,21 @@ for index_l, length in enumerate(lengthScale):
         source = start
         for i in range(time_steps):
             x.update_sets()
+            S_hat_minus_S = np.count_nonzero(np.logical_and(x.S_hat, ~x.S))
+            print(S_hat_minus_S)
             next_sample = x.target_sample()
             x.add_observation(*next_sample)
-            path_safety, source = check_shortest_path(source, next_sample,
+            if not x.S_hat[source, 0]:
+                print ("source not in S_hat")
+            if not x.S_hat[next_sample[0], 0]:
+                print ("target not in S_hat")
+            print(x.S_hat[source, 0], x.S_hat[next_sample[0], 0])
+
+            path_safety, source = check_shortest_path(source, [4262, 3],
                                                    x.graph, h_hard, altitudes)
+            print(source)
+            path_safety, source = check_shortest_path(source, next_sample,
+                                                      x.graph, h_hard, altitudes)
             unsafe_count += not path_safety
 
             # Performance
