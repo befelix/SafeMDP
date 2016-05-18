@@ -8,14 +8,43 @@ import GPy
 import matplotlib.pyplot as plt
 import numpy as np
 from osgeo import gdal
+import networkx as nx
+from scipy import interpolate
 
 from src.grid_world import *
 from plot_utilities import *
 
 print(sys.version)
 
+
+def check_shortest_path(source, next_sample, G, h, altitudes):
+    # Extract safe graph
+    safe_edges = [edge for edge in G.edges_iter(data=True) if edge[2]['safe']]
+    graph_safe = nx.DiGraph(safe_edges)
+
+    # for node, next_node in graph_safe.out_edges(nbunch=source, data=False):
+    #     graph_safe.add_edge(node, next_node)
+
+    # Compute shortest path
+    target = next_sample[0]
+    action = next_sample[1]
+    path = nx.astar_path(graph_safe, source, target)
+
+    for _, next_node, data in graph_safe.out_edges(nbunch=target, data=True):
+        if data["action"] == action:
+            path = path + [next_node]
+
+    # Check shortest path safety
+    path_altitudes = altitudes[path]
+    path_safety = np.all(-np.diff(path_altitudes) >= h)
+    # print(-np.diff(path_altitudes) >= h)
+    # print(path)
+    return path_safety, path[-1]
+
+
+
 # Control plotting and saving
-plot_map = False
+plot_map = True
 plot_performance = False
 plot_completeness = False
 plot_initial_gp = False
@@ -55,18 +84,38 @@ altitudes = np.copy(elevation[startX:startX + world_shape[0],
 mean_val = (np.max(altitudes) + np.min(altitudes)) / 2.
 altitudes[:] = altitudes - mean_val
 
-# Plot area
-if plot_map:
-    plt.imshow(altitudes.T, origin="lower", interpolation="nearest")
-    plt.colorbar()
-altitudes = altitudes.flatten()
-
 # Define coordinates
 n, m = world_shape
 step1, step2 = step_size
 xx, yy = np.meshgrid(np.linspace(0, (n - 1) * step1, n),
                      np.linspace(0, (m - 1) * step2, m), indexing="ij")
 coord = np.vstack((xx.flatten(), yy.flatten())).T
+
+# Interpolate data
+spline_interpolator = interpolate.RectBivariateSpline(
+    np.linspace(0, (n - 1) * step1, n), np.linspace(0, (m - 1) * step1, m),
+    altitudes)
+# New coordinates and altitudes
+num_of_points = 1
+world_shape = tuple([x * num_of_points for x in world_shape])
+step_size = tuple([x / num_of_points for x in step_size])
+
+n, m = world_shape
+step1, step2 = step_size
+xx, yy = np.meshgrid(np.linspace(0, (n - 1) * step1, n),
+                     np.linspace(0, (m - 1) * step2, m), indexing="ij")
+coord = np.vstack((xx.flatten(), yy.flatten())).T
+
+altitudes = spline_interpolator(np.linspace(0, (n - 1) * step1, n),
+                                np.linspace(0, (m - 1) * step2, m))
+
+
+# Plot area
+if plot_map:
+    plt.imshow(altitudes.T, origin="lower", interpolation="nearest")
+    plt.colorbar()
+    plt.show()
+altitudes = altitudes.flatten()
 
 # Safety threshold
 h = -np.tan(np.pi / 9. + np.pi / 36.) * step_size[0]
@@ -80,16 +129,16 @@ beta = 2.
 # Initialize safe sets
 S0 = np.zeros((np.prod(world_shape), 5), dtype=bool)
 S0[:, 0] = True
-starting_x = 60
-starting_y = 61
+starting_x = 60 * num_of_points
+starting_y = 61 * num_of_points
 start = starting_x * world_shape[1] + starting_y
 S_hat0 = compute_S_hat0(start, world_shape, 4, altitudes,
                         step_size, h) # 113 when you go back to 60 by 60 map
 #  or 2093 with (150, 42)
 
 # Initialize for performance
-time_steps = 600
-lengthScale = np.linspace(22., 7., num=1)
+time_steps = 300
+lengthScale = np.linspace(16., 7., num=1)
 noise = np.linspace(0.05, 0.11, num=1)
 parameters_shape = (noise.size, lengthScale.size)
 
@@ -167,11 +216,15 @@ for index_l, length in enumerate(lengthScale):
 
         # Simulation loop
         t = time.time()
-
+        unsafe_count = 0
+        source = start
         for i in range(time_steps):
             x.update_sets()
             next_sample = x.target_sample()
             x.add_observation(*next_sample)
+            path_safety, source = check_shortest_path(source, next_sample,
+                                                   x.graph, h_hard, altitudes)
+            unsafe_count += not path_safety
 
             # Performance
             coverage = 100 * np.count_nonzero(np.logical_and(x.S_hat,
@@ -180,7 +233,7 @@ for index_l, length in enumerate(lengthScale):
 
             # Store and print
             completeness[index_n, index_l, i] = coverage
-            print(coverage, false_safe)
+            print(coverage, false_safe, unsafe_count)
 
         print(str(time.time() - t) + "seconds elapsed")
         print(sigma_n, length)
