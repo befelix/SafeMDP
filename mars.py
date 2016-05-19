@@ -97,7 +97,7 @@ spline_interpolator = interpolate.RectBivariateSpline(
     altitudes)
 # New coordinates and altitudes
 num_of_points = 1
-world_shape = tuple([x * num_of_points for x in world_shape])
+world_shape = tuple([(x - 1) * num_of_points + 1 for x in world_shape])
 step_size = tuple([x / num_of_points for x in step_size])
 
 n, m = world_shape
@@ -127,17 +127,17 @@ L = 0.2
 beta = 2.
 
 # Initialize safe sets
-S0 = np.zeros((np.prod(world_shape), 5), dtype=bool)
-S0[:, 0] = True
 starting_x = 60 * num_of_points
 starting_y = 61 * num_of_points
 start = starting_x * world_shape[1] + starting_y
 S_hat0 = compute_S_hat0(start, world_shape, 4, altitudes,
                         step_size, h) # 113 when you go back to 60 by 60 map
 #  or 2093 with (150, 42)
+S0 = np.copy(S_hat0)
+S0[:, 0] = True
 
 # Initialize for performance
-time_steps = 300
+time_steps = 400
 lengthScale = np.linspace(16., 7., num=1)
 noise = np.linspace(0.05, 0.11, num=1)
 parameters_shape = (noise.size, lengthScale.size)
@@ -220,19 +220,17 @@ for index_l, length in enumerate(lengthScale):
         source = start
         for i in range(time_steps):
             x.update_sets()
-            S_hat_minus_S = np.count_nonzero(np.logical_and(x.S_hat, ~x.S))
-            print(S_hat_minus_S)
+            # S_hat_minus_S = np.count_nonzero(np.logical_and(x.S_hat, ~x.S))
+            # print(S_hat_minus_S)
             next_sample = x.target_sample()
             x.add_observation(*next_sample)
             if not x.S_hat[source, 0]:
                 print ("source not in S_hat")
             if not x.S_hat[next_sample[0], 0]:
                 print ("target not in S_hat")
-            print(x.S_hat[source, 0], x.S_hat[next_sample[0], 0])
-
-            path_safety, source = check_shortest_path(source, [4262, 3],
-                                                   x.graph, h_hard, altitudes)
-            print(source)
+            # path_safety, source = check_shortest_path(source, [4262, 3],
+            #                                        x.graph, h_hard, altitudes)
+            # print(source)
             path_safety, source = check_shortest_path(source, next_sample,
                                                       x.graph, h_hard, altitudes)
             unsafe_count += not path_safety
@@ -286,6 +284,7 @@ for index_l, length in enumerate(lengthScale):
 
 print("Noise: " + str(noise))
 print("Lengthscales: " + str(lengthScale))
+print("Number of points for interpolation: " + str(num_of_points))
 print("Size S_hat:")
 print(size_S_hat)
 print("Coverage:")
@@ -340,8 +339,9 @@ if plot:
     plt.show()
 
 if save_performance:
-    file_name = "mars_errors {0} time steps, {1}-{2} n, {3}-{4} l".format(
-        time_steps, noise[0], noise[-1], lengthScale[0], lengthScale[-1])
+    file_name = "mars_errors {0} time steps, {1}-{2} n, {3}-{4} l, {5} points".format(
+        time_steps, noise[0], noise[-1], lengthScale[0], lengthScale[-1],
+        num_of_points)
 
     np.savez(file_name, S_hat_minus_true_S_hat=S_hat_minus_true_S_hat,
              true_S_hat_minus_S_hat=true_S_hat_minus_S_hat,
