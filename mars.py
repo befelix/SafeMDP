@@ -228,8 +228,8 @@ for index_l, length in enumerate(lengthScale):
                 print ("source not in S_hat")
             if not x.S_hat[next_sample[0], 0]:
                 print ("target not in S_hat")
-            path_safety, source = check_shortest_path(source, [start, 1],
-                                                   x.graph, h_hard, altitudes)
+            # path_safety, source = check_shortest_path(source, [start, 1],
+            #                                        x.graph, h_hard, altitudes)
             # print(source)
             path_safety, source = check_shortest_path(source, next_sample,
                                                       x.graph, h_hard, altitudes)
