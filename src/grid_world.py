@@ -304,7 +304,7 @@ class GridWorld(SafeMDP):
                  S_hat0, L, update_dist=0):
 
         # Safe set
-        self.S = S0
+        self.S = S0.copy()
         graph = grid_world_graph(world_shape)
         link_graph_and_safe_set(graph, self.S)
         super(GridWorld, self).__init__(graph, gp, S_hat0, h, L, beta=2)
