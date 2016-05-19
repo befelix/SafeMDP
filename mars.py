@@ -137,12 +137,13 @@ S0 = np.copy(S_hat0)
 S0[:, 0] = True
 
 # Initialize for performance
-time_steps = 400
+time_steps = 100
 lengthScale = np.linspace(16., 7., num=1)
 noise = np.linspace(0.05, 0.11, num=1)
 parameters_shape = (noise.size, lengthScale.size)
 
 size_S_hat = np.empty(parameters_shape, dtype=int)
+unsafe_evaluations = np.empty(parameters_shape, dtype=int)
 true_S_hat_minus_S_hat = np.empty(parameters_shape, dtype=float)
 S_hat_minus_true_S_hat = np.empty(parameters_shape, dtype=int)
 completeness = np.empty(parameters_shape + (time_steps,), dtype=float)
@@ -280,6 +281,7 @@ for index_l, length in enumerate(lengthScale):
         size_S_hat[index_n, index_l] = np.sum(x.S_hat)
         true_S_hat_minus_S_hat[index_n, index_l] = coverage
         S_hat_minus_true_S_hat[index_n, index_l] = false_safe
+        unsafe_evaluations[index_n, index_l] = unsafe_count
 
 print("Noise: " + str(noise))
 print("Lengthscales: " + str(lengthScale))
@@ -290,6 +292,8 @@ print("Coverage:")
 print(true_S_hat_minus_S_hat)
 print("False safe: ")
 print(S_hat_minus_true_S_hat)
+print("Unsafe evaluations: ")
+print(unsafe_evaluations)
 
 if plot_performance:
 
