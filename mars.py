@@ -209,11 +209,10 @@ for index_l, length in enumerate(lengthScale):
         # true S_hat with statistical error for completeness
         epsilon = sigma_n
         true_S_epsilon = compute_true_safe_set(x.world_shape, x.altitudes,
-                                               x.h + epsilon)
+                                               x.h + beta * epsilon)
         true_S_hat_epsilon = compute_true_S_hat(x.graph, true_S_epsilon,
                                                 x.initial_nodes)
         max_size = float(np.count_nonzero(true_S_hat_epsilon))
-
         # Simulation loop
         t = time.time()
         unsafe_count = 0
