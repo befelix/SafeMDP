@@ -137,9 +137,9 @@ S0 = np.copy(S_hat0)
 S0[:, 0] = True
 
 # Initialize for performance
-time_steps = 100
-lengthScale = np.linspace(16., 7., num=1)
-noise = np.linspace(0.05, 0.11, num=1)
+time_steps = 600
+lengthScale = np.linspace(14., 16., num=5)
+noise = np.linspace(0.075, 0.11, num=1)
 parameters_shape = (noise.size, lengthScale.size)
 
 size_S_hat = np.empty(parameters_shape, dtype=int)
@@ -242,7 +242,7 @@ for index_l, length in enumerate(lengthScale):
 
             # Store and print
             completeness[index_n, index_l, i] = coverage
-            print(coverage, false_safe, unsafe_count)
+            print(coverage, false_safe, unsafe_count, i)
 
         print(str(time.time() - t) + "seconds elapsed")
         print(sigma_n, length)
