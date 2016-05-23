@@ -64,8 +64,8 @@ def format_figure(axis, cbar=None):
     axis.xaxis.set_ticks_position('bottom')
     axis.yaxis.set_ticks_position('left')
 
-    axis.set_xticks(np.arange(0, 81, 20))
-    yticks = np.arange(0, 81, 20)
+    axis.set_xticks(np.arange(0, 121, 30))
+    yticks = np.arange(0, 71, 35)
     axis.set_yticks(yticks)
     axis.set_yticklabels(['{0}'.format(tick) for tick in yticks[::-1]])
 
@@ -74,7 +74,7 @@ def format_figure(axis, cbar=None):
     if cbar is not None:
         cbar.set_label(r'altitude [m]')
 
-        cbar.set_ticks(np.arange(0, 64, 20))
+        cbar.set_ticks(np.arange(0, 36, 10))
 
         for spine in cbar.ax.spines.itervalues():
             spine.set_linewidth(0.1)
@@ -96,14 +96,15 @@ def emulate_color(color, alpha=1, background_color=(1, 1, 1)):
             for col, bg_col in zip(color, background_color)]
 
 
-def plot_paper(altitudes, S_hat, world_shape, surf=False, coord=np.array([])):
-    cw = 8.25381
-    tw = 17.14256
+def plot_paper(altitudes, S_hat, world_shape, fileName, surf=False,
+    coord=np.array([])):
+    tw = cw = 13.968
+    # tw = 17.14256
     cmap = 'jet'
-    alpha = 0.9
-    alpha_world = 0.35
-    size_wb = np.array([cw / 1.5, tw / 4.2])
-    size_wb = np.array([cw / 1.2, cw / 1.5])
+    alpha = 1.
+    alpha_world = 0.25
+    size_wb = np.array([cw / 2.2, tw / 4.])
+    #size_wb = np.array([cw / 4.2, cw / 4.2])
 
     altitudes -= np.nanmin(altitudes)
     vmin, vmax = (np.nanmin(altitudes), np.nanmax(altitudes))
@@ -120,10 +121,11 @@ def plot_paper(altitudes, S_hat, world_shape, surf=False, coord=np.array([])):
                         vmax=vmax, cmap=cmap, alpha=alpha_world)
 
         cbar = plt.colorbar(c)
-
+        #cbar = None
         plt.imshow(np.reshape(altitudes2, world_shape).T, origin=origin, vmin=vmin,
                    vmax=vmax, interpolation='nearest', cmap=cmap, alpha=alpha)
         format_figure(axis, cbar)
+        plt.savefig(fileName, transparent=False, format="pdf")
         plt.show()
     elif coord.size > 0:
         fig = plt.gcf()
