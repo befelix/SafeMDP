@@ -59,11 +59,11 @@ def path_to_boolean_matrix(path, G, S):
 
 
 # Control plotting and saving
-plot_performance = False
-plot_completeness = False
-plot_exploration_gp = False
+plot_performance = True
+plot_completeness = True
+plot_exploration_gp = True
 plot = plot_performance or plot_completeness or plot_exploration_gp
-save_performance = False
+save_performance = True
 plot_for_paper = True
 random_experiment = False
 non_safe_experiment = False
@@ -92,187 +92,143 @@ S0[:, 0] = True
 
 # Initialize for performance
 time_steps = 20
-lengthScale = np.linspace(14.5, 16., num=2)
-noise = np.linspace(0.075, 0.11, num=2)
-parameters_shape = (noise.size, lengthScale.size)
+length = 14.5
+sigma_n = 0.075
 
-size_S_hat = np.empty(parameters_shape, dtype=int)
-unsafe_evaluations = np.empty(parameters_shape, dtype=int)
-true_S_hat_minus_S_hat = np.empty(parameters_shape, dtype=float)
-S_hat_minus_true_S_hat = np.empty(parameters_shape, dtype=int)
-completeness = np.empty(parameters_shape + (time_steps,), dtype=float)
-dist_from_confidence_interval = np.zeros(parameters_shape + (altitudes.size,),
-                                         dtype=float)
+coverage_over_t = np.empty(time_steps, dtype=float)
+dist_from_confidence_interval = np.zeros( altitudes.size, dtype=float)
+
 # Initialize data for GP
 X = coord[start, :].reshape(1, 2)
 Y = altitudes[start].reshape(1, 1)
 
-# Loop over lengthscales and noise values
-for index_l, length in enumerate(lengthScale):
-    for index_n, sigma_n in enumerate(noise):
+# Define and initialize GP
+kernel = GPy.kern.Matern52(input_dim=2, lengthscale=length,
+                           variance=100.)
+lik = GPy.likelihoods.Gaussian(variance=sigma_n ** 2)
+gp = GPy.core.GP(X, Y, kernel, lik)
 
-        # Define and initialize GP
-        # kernel = GPy.kern.RBF(input_dim=2, lengthscale=length,
-        #                       variance=100.)
-        kernel = GPy.kern.Matern52(input_dim=2, lengthscale=length,
-                                   variance=100.)
-        lik = GPy.likelihoods.Gaussian(variance=sigma_n ** 2)
-        gp = GPy.core.GP(X, Y, kernel, lik)
+# Define SafeMDP object
+x = GridWorld(gp, world_shape, step_size, beta, altitudes, h, S0,
+              S_hat0, L, update_dist=25)
 
-        # Define SafeMDP object
-        x = GridWorld(gp, world_shape, step_size, beta, altitudes, h, S0,
-                      S_hat0, L, update_dist=25)
+# Insert samples from (s, a) in S_hat0 (needs to be more general in
+# case for the central state not all actions are safe)
+tmp = np.arange(x.coord.shape[0])
+s_vec_ind = np.random.choice(tmp[np.all(x.S_hat[:, 1:], axis=1)])
 
-        # Insert samples from (s, a) in S_hat0 (needs to be more general in
-        # case for the central state not all actions are safe)
-        tmp = np.arange(x.coord.shape[0])
-        s_vec_ind = np.random.choice(tmp[np.all(x.S_hat[:, 1:], axis=1)])
+for i in range(5):
+    x.add_observation(s_vec_ind, 1)
+    x.add_observation(s_vec_ind, 2)
+    x.add_observation(s_vec_ind, 3)
+    x.add_observation(s_vec_ind, 4)
 
-        for i in range(5):
-            x.add_observation(s_vec_ind, 1)
-            x.add_observation(s_vec_ind, 2)
-            x.add_observation(s_vec_ind, 3)
-            x.add_observation(s_vec_ind, 4)
+x.gp.set_XY(X=x.gp.X[1:, :], Y=x.gp.Y[1:, :])
+# True S_hat for misclassification
+h_hard = -np.tan(np.pi / 6.) * step_size[0]
+true_S = compute_true_safe_set(x.world_shape, x.altitudes, h_hard)
+true_S_hat = compute_true_S_hat(x.graph, true_S, x.initial_nodes)
 
-        # True S_hat for misclassification
-        h_hard = -np.tan(np.pi / 6.) * step_size[0]
-        true_S = compute_true_safe_set(x.world_shape, x.altitudes, h_hard)
-        true_S_hat = compute_true_S_hat(x.graph, true_S, x.initial_nodes)
+# true S_hat with statistical error for completeness
+epsilon = sigma_n
+true_S_epsilon = compute_true_safe_set(x.world_shape, x.altitudes,
+                                       x.h + beta * epsilon)
+true_S_hat_epsilon = compute_true_S_hat(x.graph, true_S_epsilon,
+                                        x.initial_nodes)
+max_size = float(np.count_nonzero(true_S_hat_epsilon))
+# Simulation loop
+t = time.time()
+unsafe_count = 0
+source = start
+for i in range(time_steps):
+    x.update_sets()
+    next_sample = x.target_sample()
+    x.add_observation(*next_sample)
+    path_safety, source, path = check_shortest_path(source,
+                                                    next_sample,
+                                              x.graph, h_hard, altitudes)
+    unsafe_count += not path_safety
 
-        # true S_hat with statistical error for completeness
-        epsilon = sigma_n
-        true_S_epsilon = compute_true_safe_set(x.world_shape, x.altitudes,
-                                               x.h + beta * epsilon)
-        true_S_hat_epsilon = compute_true_S_hat(x.graph, true_S_epsilon,
-                                                x.initial_nodes)
-        max_size = float(np.count_nonzero(true_S_hat_epsilon))
-        # Simulation loop
-        t = time.time()
-        unsafe_count = 0
-        source = start
-        for i in range(time_steps):
-            x.update_sets()
-            next_sample = x.target_sample()
-            x.add_observation(*next_sample)
-            path_safety, source, path = check_shortest_path(source,
-                                                            next_sample,
-                                                      x.graph, h_hard, altitudes)
-            unsafe_count += not path_safety
+    # Performance
+    coverage = 100 * np.count_nonzero(np.logical_and(x.S_hat,
+                                                true_S_hat_epsilon))/max_size
+    false_safe = np.count_nonzero(np.logical_and(x.S_hat, ~true_S_hat))
 
-            # Performance
-            coverage = 100 * np.count_nonzero(np.logical_and(x.S_hat,
-                                                        true_S_hat_epsilon))/max_size
-            false_safe = np.count_nonzero(np.logical_and(x.S_hat, ~true_S_hat))
+    # Store and print
+    coverage_over_t[i] = coverage
+    print(coverage, false_safe, unsafe_count, i)
 
-            # Store and print
-            completeness[index_n, index_l, i] = coverage
-            print(coverage, false_safe, unsafe_count, i)
+print(str(time.time() - t) + "seconds elapsed")
+print(sigma_n, length)
 
-        print(str(time.time() - t) + "seconds elapsed")
-        print(sigma_n, length)
+mu, var = x.gp.predict(x.coord, include_likelihood=False)
+sigma = x.beta * np.sqrt(var)
+l = np.squeeze(mu - sigma)
+u = np.squeeze(mu + sigma)
 
-        mu, var = x.gp.predict(x.coord, include_likelihood=False)
-        sigma = x.beta * np.sqrt(var)
-        l = np.squeeze(mu - sigma)
-        u = np.squeeze(mu + sigma)
+if plot_exploration_gp:
+    fig = plt.figure()
+    title = "{0} noise, {1} lengthscale".format(sigma_n, length)
+    plt.title(title)
 
-        if plot_exploration_gp:
-            fig = plt.figure()
-            title = "{0} noise, {1} lengthscale".format(sigma_n, length)
-            plt.title(title)
+    ax2 = fig.add_subplot(122, projection='3d')
+    ax2.plot_trisurf(x.coord[:, 0], x.coord[:, 1], altitudes)
 
-            ax2 = fig.add_subplot(122, projection='3d')
-            ax2.plot_trisurf(x.coord[:, 0], x.coord[:, 1], altitudes)
+    ax1 = fig.add_subplot(121, projection='3d',sharez=ax2)
+    ax1.plot_trisurf(x.coord[:, 0], x.coord[:, 1], np.squeeze(mu),
+                     alpha=0.5)
+    ax1.scatter(x.gp.X[:, 0], x.gp.X[:, 1], x.gp.Y)
 
-            ax1 = fig.add_subplot(121, projection='3d',sharez=ax2)
-            ax1.plot_trisurf(x.coord[:, 0], x.coord[:, 1], np.squeeze(mu),
-                             alpha=0.5)
-            ax1.scatter(x.gp.X[:, 0], x.gp.X[:, 1], x.gp.Y)
+# Above u
+diff_u = altitudes - u
+dist_from_confidence_interval[ diff_u > 0] = diff_u[diff_u > 0]
 
-        # Above u
-        diff_u = altitudes - u
-        dist_from_confidence_interval[index_n, index_l, diff_u > 0] = diff_u[
-            diff_u > 0]
+# Below l
+diff_l = altitudes - l
+dist_from_confidence_interval[diff_l < 0] = diff_l[diff_l < 0]
+# Plot safe sets
+# x.plot_S(true_S_hat_epsilon)
+# x.plot_S(x.S_hat)
 
-        # Below l
-        diff_l = altitudes - l
-        dist_from_confidence_interval[index_n, index_l, diff_l < 0] = diff_l[
-            diff_l < 0]
-        # Plot safe sets
-        # x.plot_S(true_S_hat_epsilon)
-        # x.plot_S(x.S_hat)
-
-        size_S_hat[index_n, index_l] = np.sum(x.S_hat)
-        true_S_hat_minus_S_hat[index_n, index_l] = coverage
-        S_hat_minus_true_S_hat[index_n, index_l] = false_safe
-        unsafe_evaluations[index_n, index_l] = unsafe_count
-
-print("Noise: " + str(noise))
-print("Lengthscales: " + str(lengthScale))
+print("Noise: " + str(sigma_n))
+print("Lengthscales: " + str(length))
 print("Number of points for interpolation: " + str(num_of_points))
-print("Size S_hat:")
-print(size_S_hat)
-print("Coverage:")
-print(true_S_hat_minus_S_hat)
 print("False safe: ")
-print(S_hat_minus_true_S_hat)
+print(false_safe)
 print("Unsafe evaluations: ")
-print(unsafe_evaluations)
+print(unsafe_count)
 
 if plot_performance:
-
-    # As a function of noise
     plt.figure()
-    plt.plot(noise, S_hat_minus_true_S_hat)
-    plt.xlabel("Noise")
-    title = "{0} time steps, {1}-{2} noise, {3}-{4} lengthscale".format\
-        (time_steps, noise[0], noise[-1], lengthScale[0], lengthScale[-1])
+    max_value = np.max(dist_from_confidence_interval)
+    min_value = np.min(dist_from_confidence_interval)
+    limit = np.max([max_value, np.abs(min_value)])
+    plt.imshow(
+        np.reshape(dist_from_confidence_interval,x.world_shape).T, origin='lower',
+        interpolation='nearest', vmin=-limit, vmax=limit)
+    title = "Distance from confidence interval noise {0} - lengthscale {1} - errors {2}".format(
+        sigma_n, length, false_safe)
     plt.title(title)
-
-    # As a function of lengthscale
-    plt.figure()
-    plt.plot(lengthScale, S_hat_minus_true_S_hat.T)
-    plt.xlabel("Lengthscale")
-    plt.title(title)
-
-    for index_l, length in enumerate(lengthScale):
-        for index_n, sigma_n in enumerate(noise):
-            plt.figure()
-            max_value = np.max(dist_from_confidence_interval[index_n,
-                               index_l, :])
-            min_value = np.min(dist_from_confidence_interval[index_n,
-                               index_l, :])
-            limit = np.max([max_value, np.abs(min_value)])
-            plt.imshow(
-                np.reshape(dist_from_confidence_interval[index_n, index_l, :],
-                           x.world_shape).T, origin='lower',
-                interpolation='nearest', vmin=-limit, vmax=limit)
-            title = "noise {0} - lengthscale {1} - errors {2}".format(
-                sigma_n, length, S_hat_minus_true_S_hat[index_n, index_l])
-            plt.title(title)
-            plt.colorbar()
+    plt.colorbar()
 
 if plot_completeness:
-    for index_l, length in enumerate(lengthScale):
-        for index_n, sigma_n in enumerate(noise):
             plt.figure()
-            plt.plot(completeness[index_n, index_l, :])
+            plt.plot(coverage_over_t)
 
-            title = "noise {0} - lengthscale {1} - errors {2}".format(
-                sigma_n, length, S_hat_minus_true_S_hat[index_n, index_l])
+            title = "Coverage over time -noise {0} - lengthscale {1} - " \
+                    "errors {2}".format(sigma_n, length, false_safe)
             plt.title(title)
 
 if plot:
     plt.show()
 
 if save_performance:
-    file_name = "mars_errors {0} time steps, {1}-{2} n, {3}-{4} l, {5} points".format(
-        time_steps, noise[0], noise[-1], lengthScale[0], lengthScale[-1],
-        num_of_points)
+    file_name = "mars_errors {0} time steps, {1} n, {2} l, {3} points".format(
+        time_steps, sigma_n, length, num_of_points)
 
-    np.savez(file_name, S_hat_minus_true_S_hat=S_hat_minus_true_S_hat,
-             true_S_hat_minus_S_hat=true_S_hat_minus_S_hat,
-             completeness=completeness, lengthScale=lengthScale, noise=noise,
+    np.savez(file_name, false_safe=false_safe, coverage=coverage,
+             coverage_over_t=coverage_over_t, length=length,
+             sigma_n=sigma_n,
              dist_from_confidence_interval=dist_from_confidence_interval,
              time_steps=time_steps, world_shape=world_shape)
 
@@ -338,7 +294,6 @@ if non_safe_experiment:
         false_safe = np.count_nonzero(np.logical_and(x.S_hat, ~true_S_hat))
 
         # Store and print
-        completeness[index_n, index_l, i] = coverage
         print(coverage, false_safe, unsafe_count, i)
         if unsafe:
             break
