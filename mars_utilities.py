@@ -1,14 +1,16 @@
+from src.grid_world import *
 from osgeo import gdal
 from scipy import interpolate
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import GPy
 
 
 def mars_map(plot_map=False, interpolation=False):
 
     # Define the dimension of the map we want to investigate and its resolution
-    world_shape = (120, 70)#(60, 42)
+    world_shape = (120, 70)
     step_size = (1., 1.)
 
     # Download and convert to GEOtiff Mars data
@@ -81,3 +83,55 @@ def mars_map(plot_map=False, interpolation=False):
     altitudes = altitudes.flatten()
 
     return altitudes, coord, world_shape, step_size, num_of_points
+
+
+def initialize_SafeMDP_object(altitudes, coord, world_shape, step_size, L=0.2,
+                              beta=2, length=14.5, sigma_n=0.075, start_x=60,
+                              start_y=61):
+
+    # Safety threshold
+    h = -np.tan(np.pi / 9. + np.pi / 36.) * step_size[0]
+
+    #Initial node
+    start = start_x * world_shape[1] + start_y
+
+    # Initial safe sets
+    S_hat0 = compute_S_hat0(start, world_shape, 4, altitudes,
+                        step_size, h)
+    S0 = np.copy(S_hat0)
+    S0[:, 0] = True
+
+    # Initialize GP
+    X = coord[start, :].reshape(1, 2)
+    Y = altitudes[start].reshape(1, 1)
+    kernel = GPy.kern.Matern52(input_dim=2, lengthscale=length, variance=100.)
+    lik = GPy.likelihoods.Gaussian(variance=sigma_n ** 2)
+    gp = GPy.core.GP(X, Y, kernel, lik)
+
+    # Define SafeMDP object
+    x = GridWorld(gp, world_shape, step_size, beta, altitudes, h, S0,
+              S_hat0, L, update_dist=25)
+
+    # Add samples about actions from starting node
+    for i in range(5):
+        x.add_observation(start, 1)
+        x.add_observation(start, 2)
+        x.add_observation(start, 3)
+        x.add_observation(start, 4)
+
+    x.gp.set_XY(X=x.gp.X[1:, :], Y=x.gp.Y[1:, :]) # Necessary for results as in
+    # paper
+
+    # True safe set for false safe
+    h_hard = -np.tan(np.pi / 6.) * step_size[0]
+    true_S = compute_true_safe_set(x.world_shape, x.altitudes, h_hard)
+    true_S_hat = compute_true_S_hat(x.graph, true_S, x.initial_nodes)
+
+    # True safe set for completeness
+    epsilon = sigma_n * beta
+    true_S_epsilon = compute_true_safe_set(x.world_shape, x.altitudes,
+                                           x.h + epsilon)
+    true_S_hat_epsilon = compute_true_S_hat(x.graph, true_S_epsilon,
+                                            x.initial_nodes)
+
+    return start, x, true_S_hat, true_S_hat_epsilon, h_hard
