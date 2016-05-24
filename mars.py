@@ -18,7 +18,7 @@ from mars_utilities import *
 print(sys.version)
 
 
-def check_shortest_path(source, next_sample, G, h, altitudes):
+def shortest_path(source, next_sample, G):
     # Extract safe graph
     safe_edges = [edge for edge in G.edges_iter(data=True) if edge[2]['safe']]
     graph_safe = nx.DiGraph(safe_edges)
@@ -35,12 +35,7 @@ def check_shortest_path(source, next_sample, G, h, altitudes):
         if data["action"] == action:
             path = path + [next_node]
 
-    # Check shortest path safety
-    path_altitudes = altitudes[path]
-    path_safety = np.all(-np.diff(path_altitudes) >= h)
-    # print(-np.diff(path_altitudes) >= h)
-    # print(path)
-    return path_safety, path[-1], path
+    return path
 
 
 def path_to_boolean_matrix(path, G, S):
@@ -77,8 +72,6 @@ altitudes, coord, world_shape, step_size, num_of_points = mars_map()
 start, x, true_S_hat, true_S_hat_epsilon, h_hard = initialize_SafeMDP_object(
     altitudes, coord, world_shape, step_size)
 
-max_size = float(np.count_nonzero(true_S_hat_epsilon))
-
 # Initialize for performance storage
 time_steps = 20
 coverage_over_t = np.empty(time_steps, dtype=float)
@@ -88,21 +81,21 @@ dist_from_confidence_interval = np.zeros( altitudes.size, dtype=float)
 t = time.time()
 unsafe_count = 0
 source = start
+
 for i in range(time_steps):
+
+    # Simulation
     x.update_sets()
     next_sample = x.target_sample()
     x.add_observation(*next_sample)
-    path_safety, source, path = check_shortest_path(source,
-                                                    next_sample,
-                                              x.graph, h_hard, altitudes)
-    unsafe_count += not path_safety
+    path = shortest_path(source, next_sample, x.graph)
+    source = path[-1]
 
-    # Performance
-    coverage = 100 * np.count_nonzero(np.logical_and(x.S_hat,
-                                                true_S_hat_epsilon))/max_size
-    false_safe = np.count_nonzero(np.logical_and(x.S_hat, ~true_S_hat))
-
-    # Store and print
+    # Performances
+    unsafe_transitions, coverage, false_safe = performance_metrics(path, x,
+                                                                   true_S_hat_epsilon,
+                                                                   true_S_hat, h_hard)
+    unsafe_count += unsafe_transitions
     coverage_over_t[i] = coverage
     print(coverage, false_safe, unsafe_count, i)
 

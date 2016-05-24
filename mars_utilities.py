@@ -135,3 +135,21 @@ def initialize_SafeMDP_object(altitudes, coord, world_shape, step_size, L=0.2,
                                             x.initial_nodes)
 
     return start, x, true_S_hat, true_S_hat_epsilon, h_hard
+
+
+def performance_metrics(path, x, true_S_hat_epsilon, true_S_hat, h_hard):
+
+    # Count unsafe transitions along the path
+    path_altitudes = x.altitudes[path]
+    unsafe_transitions = np.sum(-np.diff(path_altitudes) < h_hard)
+
+    # Coverage
+    max_size = float(np.count_nonzero(true_S_hat_epsilon))
+    coverage = 100 * np.count_nonzero(np.logical_and(x.S_hat,
+                                                true_S_hat_epsilon))/max_size
+    # False safe
+    false_safe = np.count_nonzero(np.logical_and(x.S_hat, ~true_S_hat))
+
+    return unsafe_transitions, coverage, false_safe
+
+
