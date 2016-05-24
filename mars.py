@@ -59,13 +59,10 @@ def path_to_boolean_matrix(path, G, S):
 
 
 # Control plotting and saving
-plot_map = False
 plot_performance = False
 plot_completeness = False
-plot_initial_gp = False
 plot_exploration_gp = False
-plot = plot_map or plot_performance or plot_completeness or plot_initial_gp \
-       or plot_exploration_gp
+plot = plot_performance or plot_completeness or plot_exploration_gp
 save_performance = False
 plot_for_paper = True
 random_experiment = False
@@ -89,15 +86,14 @@ starting_x = 60
 starting_y = 61
 start = starting_x * world_shape[1] + starting_y
 S_hat0 = compute_S_hat0(start, world_shape, 4, altitudes,
-                        step_size, h) # 113 when you go back to 60 by 60 map
-#  or 2093 with (150, 42)
+                        step_size, h)
 S0 = np.copy(S_hat0)
 S0[:, 0] = True
 
 # Initialize for performance
-time_steps = 100
-lengthScale = np.linspace(14.5, 16., num=1)
-noise = np.linspace(0.075, 0.11, num=1)
+time_steps = 20
+lengthScale = np.linspace(14.5, 16., num=2)
+noise = np.linspace(0.075, 0.11, num=2)
 parameters_shape = (noise.size, lengthScale.size)
 
 size_S_hat = np.empty(parameters_shape, dtype=int)
@@ -108,10 +104,8 @@ completeness = np.empty(parameters_shape + (time_steps,), dtype=float)
 dist_from_confidence_interval = np.zeros(parameters_shape + (altitudes.size,),
                                          dtype=float)
 # Initialize data for GP
-n_samples = 100
-ind = np.random.choice(range(altitudes.size), n_samples)
-X = coord[ind, :]
-Y = altitudes[ind].reshape(n_samples, 1)
+X = coord[start, :].reshape(1, 2)
+Y = altitudes[start].reshape(1, 1)
 
 # Loop over lengthscales and noise values
 for index_l, length in enumerate(lengthScale):
@@ -124,22 +118,6 @@ for index_l, length in enumerate(lengthScale):
                                    variance=100.)
         lik = GPy.likelihoods.Gaussian(variance=sigma_n ** 2)
         gp = GPy.core.GP(X, Y, kernel, lik)
-
-        if plot_initial_gp:
-            mu, var = gp.predict(coord, include_likelihood=False)
-            sigma = beta * np.sqrt(var)
-            l = np.squeeze(mu - sigma)
-            u = np.squeeze(mu + sigma)
-            fig = plt.figure()
-            title = "{0} noise, {1} lengthscale".format(sigma_n, length)
-            plt.title(title)
-
-            ax2 = fig.add_subplot(122, projection='3d')
-            ax2.plot_trisurf(coord[:, 0], coord[:, 1], altitudes)
-
-            ax1 = fig.add_subplot(121, projection='3d', sharez=ax2)
-            ax1.plot_trisurf(coord[:, 0], coord[:, 1], np.squeeze(mu), alpha=0.5)
-            ax1.scatter(X[:, 0], X[:, 1], Y, depthshade=False, s=40)
 
         # Define SafeMDP object
         x = GridWorld(gp, world_shape, step_size, beta, altitudes, h, S0,
@@ -155,9 +133,6 @@ for index_l, length in enumerate(lengthScale):
             x.add_observation(s_vec_ind, 2)
             x.add_observation(s_vec_ind, 3)
             x.add_observation(s_vec_ind, 4)
-
-        # Remove samples used for GP initialization
-        x.gp.set_XY(x.gp.X[n_samples:, :], x.gp.Y[n_samples:])
 
         # True S_hat for misclassification
         h_hard = -np.tan(np.pi / 6.) * step_size[0]
@@ -305,8 +280,6 @@ if plot_for_paper:
     # Plot 2D for paper
     plot_paper(altitudes, x.S_hat, world_shape, './safe_exploration.pdf')
 
-    # Plot 3D for paper
-    # plot_paper(altitudes, x.S_hat, world_shape, surf=True,  coord=coord)
 
 ########################## NON SAFE ###########################################
 if non_safe_experiment:
