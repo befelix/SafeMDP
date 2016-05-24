@@ -13,6 +13,7 @@ from scipy import interpolate
 
 from src.grid_world import *
 from plot_utilities import *
+from mars_utilities import *
 
 print(sys.version)
 
@@ -72,69 +73,8 @@ non_safe_experiment = False
 non_ergodic_experiment = False
 no_expanders_exploration = False
 
-# Extract and plot Mars data
-world_shape = (120, 70)#(60, 42)
-step_size = (1., 1.)
-gdal.UseExceptions()
-
-# Download data files
-if not os.path.exists('./mars.tif'):
-    if not os.path.exists("./mars.IMG"):
-        import urllib
-
-        # Download the IMG file
-        urllib.urlretrieve(
-            "http://www.uahirise.org/PDS/DTM/PSP/ORB_010200_010299"
-            "/PSP_010228_1490_ESP_016320_1490"
-            "/DTEEC_010228_1490_016320_1490_A01.IMG", "mars.IMG")
-    # Convert to tif
-    os.system("gdal_translate -of GTiff ./mars.IMG ./mars.tif")
-
-ds = gdal.Open("./mars.tif")
-band = ds.GetRasterBand(1)
-elevation = band.ReadAsArray()
-
-# Extract and shift interesting area
-startX = 2890  # 2960 2ith world_shape = (60, 60)
-startY = 1955  # Before it was 1965 with world_shape = [60, 60]
-altitudes = np.copy(elevation[startX:startX + world_shape[0],
-                    startY:startY + world_shape[1]])
-mean_val = (np.max(altitudes) + np.min(altitudes)) / 2.
-altitudes[:] = altitudes - mean_val
-
-# Define coordinates
-n, m = world_shape
-step1, step2 = step_size
-xx, yy = np.meshgrid(np.linspace(0, (n - 1) * step1, n),
-                     np.linspace(0, (m - 1) * step2, m), indexing="ij")
-coord = np.vstack((xx.flatten(), yy.flatten())).T
-
-# Interpolate data
-spline_interpolator = interpolate.RectBivariateSpline(
-    np.linspace(0, (n - 1) * step1, n), np.linspace(0, (m - 1) * step1, m),
-    altitudes)
-# New coordinates and altitudes
-num_of_points = 1
-world_shape = tuple([(x - 1) * num_of_points + 1 for x in world_shape])
-step_size = tuple([x / num_of_points for x in step_size])
-
-n, m = world_shape
-step1, step2 = step_size
-xx, yy = np.meshgrid(np.linspace(0, (n - 1) * step1, n),
-                     np.linspace(0, (m - 1) * step2, m), indexing="ij")
-coord = np.vstack((xx.flatten(), yy.flatten())).T
-
-altitudes = spline_interpolator(np.linspace(0, (n - 1) * step1, n),
-                                np.linspace(0, (m - 1) * step2, m))
-
-
-# Plot area
-if plot_map:
-    plt.imshow(altitudes.T, origin="lower", interpolation="nearest")
-    plt.colorbar()
-    plt.show()
-altitudes = altitudes.flatten()
-
+# Get mars data
+altitudes, coord, world_shape, step_size, num_of_points = mars_map()
 # Safety threshold
 h = -np.tan(np.pi / 9. + np.pi / 36.) * step_size[0]
 
@@ -145,8 +85,8 @@ L = 0.2
 beta = 2.
 
 # Initialize safe sets
-starting_x = 60 * num_of_points
-starting_y = 61 * num_of_points
+starting_x = 60
+starting_y = 61
 start = starting_x * world_shape[1] + starting_y
 S_hat0 = compute_S_hat0(start, world_shape, 4, altitudes,
                         step_size, h) # 113 when you go back to 60 by 60 map
@@ -155,7 +95,7 @@ S0 = np.copy(S_hat0)
 S0[:, 0] = True
 
 # Initialize for performance
-time_steps = 525
+time_steps = 100
 lengthScale = np.linspace(14.5, 16., num=1)
 noise = np.linspace(0.075, 0.11, num=1)
 parameters_shape = (noise.size, lengthScale.size)
