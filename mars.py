@@ -34,8 +34,8 @@ def safe_subpath(path, altitudes, h):
 save_performance = True
 random_experiment = False
 non_safe_experiment = False
-non_ergodic_experiment = True
-no_expanders_exploration = False
+non_ergodic_experiment = False
+no_expanders_exploration = True
 
 # Get mars data
 altitudes, coord, world_shape, step_size, num_of_points = mars_map()
@@ -262,46 +262,49 @@ if non_ergodic_experiment:
 
 ################################## NO EXPANDERS ###############################
 if no_expanders_exploration:
-    kernel = GPy.kern.Matern52(input_dim=2, lengthscale=length,
-                               variance=100.)
-    lik = GPy.likelihoods.Gaussian(variance=sigma_n ** 2)
-    gp = GPy.core.GP(X, Y, kernel, lik)
-    h = -np.tan(np.pi / 9. + np.pi / 36.) * step_size[0]
 
-    L_no_expanders = 100.
+    # Get mars data
+    altitudes, coord, world_shape, step_size, num_of_points = mars_map()
 
-    x = GridWorld(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0,
-                  L_no_expanders, update_dist=25)
+    L_no_expanders = 1000.
 
-    # Insert samples from (s, a) in S_hat0 (needs to be more general in
-    # case for the central state not all actions are safe)
-    tmp = np.arange(x.coord.shape[0])
-    s_vec_ind = np.random.choice(tmp[np.all(x.S_hat[:, 1:], axis=1)])
+    # Initialize object for simulation
+    start, x, true_S_hat, true_S_hat_epsilon, h_hard = initialize_SafeMDP_object(
+        altitudes, coord, world_shape, step_size, L=L_no_expanders)
 
-    for i in range(5):
-        x.add_observation(s_vec_ind, 1)
-        x.add_observation(s_vec_ind, 2)
-        x.add_observation(s_vec_ind, 3)
-        x.add_observation(s_vec_ind, 4)
+    # Initialize for performance storage
+    coverage_over_t = np.empty(time_steps, dtype=float)
 
-    # Remove samples used for GP initialization
-    x.gp.set_XY(x.gp.X[n_samples:, :], x.gp.Y[n_samples:])
-
+    # Simulation loop
     source = start
     unsafe_count = 0
+
     for i in range(int(time_steps)):
+
+        #Simulation
         x.update_sets()
         next_sample = x.target_sample()
         x.add_observation(*next_sample)
-        path_safety, source, path = check_shortest_path(source,
-                                                            next_sample,
-                                                      x.graph, h_hard, altitudes)
-        unsafe_count += not path_safety
-        # Performance
-        coverage = 100 * np.count_nonzero(np.logical_and(x.S_hat,
-                                                    true_S_hat_epsilon))/max_size
-        false_safe = np.count_nonzero(np.logical_and(x.S_hat, ~true_S))
-        print(coverage, false_safe, unsafe_count, i)
-    plot_paper(altitudes, x.S_hat, world_shape, './no_G_exploration.pdf')
-    x.plot_S(x.S_hat)
+        path = shortest_path(source, next_sample, x.graph)
+        source = path[-1]
 
+        # Performances
+        unsafe_transitions, coverage, false_safe = performance_metrics(path, x,
+                                                                       true_S_hat_epsilon,
+                                                                       true_S_hat, h_hard)
+        unsafe_count += unsafe_transitions
+        coverage_over_t[i] = coverage
+        print(coverage, false_safe, unsafe_count, i)
+
+    # Print
+    print("----NO EXPANDER EXPERIMENT---")
+    print("False safe: " + str(false_safe))
+    print("Unsafe evaluations: " + str(unsafe_count))
+    print("Coverage: " + str(coverage))
+
+    if save_performance:
+        file_name = "mars no G experiment"
+
+        np.savez(file_name, false_safe=false_safe, coverage=coverage,
+            coverage_over_t=coverage_over_t, altitudes=x.altitudes, S_hat=x.S_hat,
+            world_shape=world_shape)
