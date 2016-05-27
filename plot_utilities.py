@@ -96,48 +96,81 @@ def emulate_color(color, alpha=1, background_color=(1, 1, 1)):
             for col, bg_col in zip(color, background_color)]
 
 
-def plot_paper(altitudes, S_hat, world_shape, fileName, surf=False,
-    coord=np.array([])):
+def plot_paper(altitudes, S_hat, world_shape, fileName=""):
+    """
+    Plots for NIPS paper
+    Parameters
+    ----------
+    altitudes: np.array
+        True value of the altitudes of the map
+    S_hat: np.array
+        Safe and ergodic set
+    world_shape: tuple
+        Size of the grid world (rows, columns)
+    fileName: string
+        Name of the file to save the plot
+    Returns
+    -------
+
+    """
+    # Size of figures and colormap
     tw = cw = 13.968
-    # tw = 17.14256
     cmap = 'jet'
     alpha = 1.
     alpha_world = 0.25
     size_wb = np.array([cw / 2.2, tw / 4.])
     #size_wb = np.array([cw / 4.2, cw / 4.2])
 
+    # Shift altitudes
     altitudes -= np.nanmin(altitudes)
     vmin, vmax = (np.nanmin(altitudes), np.nanmax(altitudes))
     origin = 'lower'
 
     fig = paper_figure(size_wb)
 
+    # Copy altitudes for different alpha values
     altitudes2 = altitudes.copy()
     altitudes2[~S_hat[:, 0]] = np.nan
 
-    if not surf:
-        axis = fig.gca()
-        c = axis.imshow(np.reshape(altitudes, world_shape).T, origin=origin, vmin=vmin,
-                        vmax=vmax, cmap=cmap, alpha=alpha_world)
+    axis = fig.gca()
 
-        cbar = plt.colorbar(c)
-        #cbar = None
-        plt.imshow(np.reshape(altitudes2, world_shape).T, origin=origin, vmin=vmin,
-                   vmax=vmax, interpolation='nearest', cmap=cmap, alpha=alpha)
-        format_figure(axis, cbar)
+    # Plot world
+    c = axis.imshow(np.reshape(altitudes, world_shape).T, origin=origin, vmin=vmin,
+                    vmax=vmax, cmap=cmap, alpha=alpha_world)
+
+    cbar = plt.colorbar(c)
+    #cbar = None
+
+    # Plot explored area
+    plt.imshow(np.reshape(altitudes2, world_shape).T, origin=origin, vmin=vmin,
+               vmax=vmax, interpolation='nearest', cmap=cmap, alpha=alpha)
+    format_figure(axis, cbar)
+    if fileName:
         plt.savefig(fileName, transparent=False, format="pdf")
-        plt.show()
-    elif coord.size > 0:
-        fig = plt.gcf()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.plot_trisurf(coord[:, 0], coord[:, 1], altitudes, alpha=alpha_world)
-        ax.plot_trisurf(coord[:, 0], coord[:, 1], altitudes2, alpha=alpha)
-        plt.show()
-    else:
-        raise ValueError("Coordinates are needed for 3D plots")
+    plt.show()
+
 
 
 def plot_dist_from_C(mu, var, beta, altitudes, world_shape):
+    """
+    Image plot of the distance of the true safety feature from the
+    confidence interval. Distance is equal to 0 if the true r(s) lies within
+    C(s), it is > 0 if r(s)>u(s) and < 0 if r(s)<l(s)
+
+    Parameters
+    ----------
+    mu: np.array
+        posterior mean over the altitudes in the map
+    var:
+        posterior mean over the altitudes in the map
+    beta: float
+        Scaling factor that controls the amplitude of the confidence iterval
+    altitudes: np.array
+        True value of the altitudes
+    world_shape: tuple
+        Size of the grid world (rows, columns)
+
+    """
 
     # Lower and upper C on heights
     sigma = beta * np.sqrt(var)
@@ -172,6 +205,10 @@ def plot_dist_from_C(mu, var, beta, altitudes, world_shape):
 
 
 def plot_coverage(coverage_over_t):
+    """
+    Plots coverage of true_S_hat_epsilon as a function of time
+
+    """
     plt.figure()
     plt.plot(coverage_over_t)
     title = "Coverage over time"
