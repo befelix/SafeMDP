@@ -25,6 +25,8 @@ non_safe_experiment = True
 non_ergodic_experiment = False
 no_expanders_exploration = True
 
+############################## SAFE ###########################################
+
 # Get mars data
 altitudes, coord, world_shape, step_size, num_of_points = mars_map()
 
@@ -64,6 +66,7 @@ print(str(time.time() - t) + "seconds elapsed")
 mu_alt, var_alt = x.gp.predict(x.coord, include_likelihood=False)
 
 
+print("----UNSAFE EXPERIMENT---")
 print("Number of points for interpolation: " + str(num_of_points))
 print("False safe: " +str(false_safe))
 print("Unsafe evaluations: " + str(unsafe_count))
