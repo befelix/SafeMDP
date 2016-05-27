@@ -108,7 +108,8 @@ def plot_paper(altitudes, S_hat, world_shape, fileName=""):
     world_shape: tuple
         Size of the grid world (rows, columns)
     fileName: string
-        Name of the file to save the plot
+        Name of the file to save the plot. If empty string the plot is not
+        saved
     Returns
     -------
 
@@ -145,6 +146,8 @@ def plot_paper(altitudes, S_hat, world_shape, fileName=""):
     plt.imshow(np.reshape(altitudes2, world_shape).T, origin=origin, vmin=vmin,
                vmax=vmax, interpolation='nearest', cmap=cmap, alpha=alpha)
     format_figure(axis, cbar)
+
+    # Save figure
     if fileName:
         plt.savefig(fileName, transparent=False, format="pdf")
     plt.show()
