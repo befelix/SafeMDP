@@ -11,31 +11,11 @@ from osgeo import gdal
 import networkx as nx
 from scipy import interpolate
 
-from src.grid_world import *
 from plot_utilities import *
 from mars_utilities import *
+from src.grid_world import *
 
 print(sys.version)
-
-
-def shortest_path(source, next_sample, G):
-    # Extract safe graph
-    safe_edges = [edge for edge in G.edges_iter(data=True) if edge[2]['safe']]
-    graph_safe = nx.DiGraph(safe_edges)
-
-    # for node, next_node in graph_safe.out_edges(nbunch=source, data=False):
-    #     graph_safe.add_edge(node, next_node)
-
-    # Compute shortest path
-    target = next_sample[0]
-    action = next_sample[1]
-    path = nx.astar_path(graph_safe, source, target)
-
-    for _, next_node, data in graph_safe.out_edges(nbunch=target, data=True):
-        if data["action"] == action:
-            path = path + [next_node]
-
-    return path
 
 
 def path_to_boolean_matrix(path, G, S):
@@ -53,15 +33,22 @@ def path_to_boolean_matrix(path, G, S):
     return bool_mat
 
 
+def safe_subpath(path, altitudes, h):
+    subpath = [path[0]]
+    for j in range(len(path) - 1):
+        prev = path[j]
+        succ = path[j + 1]
+        if altitudes[prev] - altitudes[succ] >= h:
+            subpath = subpath + [succ]
+        else:
+            break
+    return subpath
+
+
 # Control plotting and saving
-plot_performance = True
-plot_completeness = True
-plot_exploration_gp = True
-plot = plot_performance or plot_completeness or plot_exploration_gp
 save_performance = True
-plot_for_paper = True
 random_experiment = False
-non_safe_experiment = False
+non_safe_experiment = True
 non_ergodic_experiment = False
 no_expanders_exploration = False
 
@@ -75,7 +62,6 @@ start, x, true_S_hat, true_S_hat_epsilon, h_hard = initialize_SafeMDP_object(
 # Initialize for performance storage
 time_steps = 20
 coverage_over_t = np.empty(time_steps, dtype=float)
-dist_from_confidence_interval = np.zeros( altitudes.size, dtype=float)
 
 # Simulation loop
 t = time.time()
@@ -101,135 +87,82 @@ for i in range(time_steps):
 
 print(str(time.time() - t) + "seconds elapsed")
 
-
-mu, var = x.gp.predict(x.coord, include_likelihood=False)
-sigma = x.beta * np.sqrt(var)
-l = np.squeeze(mu - sigma)
-u = np.squeeze(mu + sigma)
-
-if plot_exploration_gp:
-    fig = plt.figure()
-    title = "Posterior after exploration"
-    plt.title(title)
-
-    ax2 = fig.add_subplot(122, projection='3d')
-    ax2.plot_trisurf(x.coord[:, 0], x.coord[:, 1], altitudes)
-
-    ax1 = fig.add_subplot(121, projection='3d',sharez=ax2)
-    ax1.plot_trisurf(x.coord[:, 0], x.coord[:, 1], np.squeeze(mu),
-                     alpha=0.5)
-    ax1.scatter(x.gp.X[:, 0], x.gp.X[:, 1], x.gp.Y)
-
-# Above u
-diff_u = altitudes - u
-dist_from_confidence_interval[ diff_u > 0] = diff_u[diff_u > 0]
-
-# Below l
-diff_l = altitudes - l
-dist_from_confidence_interval[diff_l < 0] = diff_l[diff_l < 0]
+# Posterior over heights for plotting
+mu_alt, var_alt = x.gp.predict(x.coord, include_likelihood=False)
 
 
 print("Number of points for interpolation: " + str(num_of_points))
 print("False safe: " +str(false_safe))
 print("Unsafe evaluations: " + str(unsafe_count))
-
-if plot_performance:
-    plt.figure()
-    max_value = np.max(dist_from_confidence_interval)
-    min_value = np.min(dist_from_confidence_interval)
-    limit = np.max([max_value, np.abs(min_value)])
-    plt.imshow(
-        np.reshape(dist_from_confidence_interval,x.world_shape).T, origin='lower',
-        interpolation='nearest', vmin=-limit, vmax=limit)
-    title = "Distance from confidence interval - errors {0}".format(false_safe)
-    plt.title(title)
-    plt.colorbar()
-
-if plot_completeness:
-            plt.figure()
-            plt.plot(coverage_over_t)
-            title = "Coverage over time - errors {0}".format(false_safe)
-            plt.title(title)
-
-if plot:
-    plt.show()
+print("Coverage: " + str(coverage))
 
 if save_performance:
-    file_name = "mars_errors {0} time steps, {1} points".format(
-        time_steps, num_of_points)
+    file_name = "mars safe experiment"
 
     np.savez(file_name, false_safe=false_safe, coverage=coverage,
-             coverage_over_t=coverage_over_t,
-             dist_from_confidence_interval=dist_from_confidence_interval,
-             time_steps=time_steps, world_shape=world_shape)
-
-if plot_for_paper:
-    # Plot 2D for paper
-    plot_paper(altitudes, x.S_hat, world_shape, './safe_exploration.pdf')
+             coverage_over_t=coverage_over_t, mu_alt=mu_alt,
+             var_alt=var_alt, altitudes=x.altitudes, S_hat=x.S_hat,
+             time_steps=time_steps, world_shape=world_shape, X=x.gp.X,
+             Y=x.gp.Y, coord=x.coord, beta=x.beta)
 
 
 ########################## NON SAFE ###########################################
 if non_safe_experiment:
-    kernel = GPy.kern.Matern52(input_dim=2, lengthscale=length,
-                               variance=100.)
-    lik = GPy.likelihoods.Gaussian(variance=sigma_n ** 2)
-    gp = GPy.core.GP(X, Y, kernel, lik)
-    h = -np.tan(np.pi / 9. + np.pi / 36.) * step_size[0]
-    # Define SafeMDP object
-    x = GridWorld(gp, world_shape, step_size, beta, altitudes, h, np.ones_like(
-        S0, dtype=bool), S_hat0, L, update_dist=25)
 
-    # Insert samples from (s, a) in S_hat0 (needs to be more general in
-    # case for the central state not all actions are safe)
-    tmp = np.arange(x.coord.shape[0])
-    s_vec_ind = np.random.choice(tmp[np.all(x.S_hat[:, 1:], axis=1)])
+    # Get mars data
+    altitudes, coord, world_shape, step_size, num_of_points = mars_map()
 
-    for i in range(5):
-        x.add_observation(s_vec_ind, 1)
-        x.add_observation(s_vec_ind, 2)
-        x.add_observation(s_vec_ind, 3)
-        x.add_observation(s_vec_ind, 4)
+    # Initialize object for simulation
+    start, x, true_S_hat, true_S_hat_epsilon, h_hard = initialize_SafeMDP_object(
+        altitudes, coord, world_shape, step_size)
 
-    # Remove samples used for GP initialization
-    x.gp.set_XY(x.gp.X[n_samples:, :], x.gp.Y[n_samples:])
+    # Assume all transitions are safe
+    x.S[:] = True
 
+    # Simulation loop
     t = time.time()
     unsafe_count = 0
     source = start
     trajectory = []
-    unsafe = False
+
     for i in range(time_steps):
         x.update_sets()
         next_sample = x.target_sample()
         x.add_observation(*next_sample)
-        path_safety, source, path = check_shortest_path(source, next_sample,
-                                                      x.graph, h_hard, altitudes)
-        if path_safety:
-            trajectory = trajectory + path
-        else:
-            for j in range(len(path) - 1):
-                prev = path[j]
-                succ = path[j + 1]
-                if altitudes[prev] - altitudes[succ] >= h_hard:
-                    trajectory = trajectory + [prev]
-                else:
-                    unsafe = True
-                    break
-        # Performance
-        # trajectory = np.unique(trajectory)
-        # visited = np.zeros_like(S0, dtype=bool)
-        # visited[trajectory, 0] = True
-        visited = path_to_boolean_matrix(trajectory, x.graph, S0)
-        coverage = 100 * np.count_nonzero(np.logical_and(visited,
-                                                    true_S_hat_epsilon))/max_size
-        false_safe = np.count_nonzero(np.logical_and(x.S_hat, ~true_S_hat))
+        path = shortest_path(source, next_sample, x.graph)
+        source = path[-1]
 
-        # Store and print
-        print(coverage, false_safe, unsafe_count, i)
-        if unsafe:
+        # Check safety
+        path_altitudes = x.altitudes[path]
+        unsafe_count = np.sum(-np.diff(path_altitudes) < h_hard)
+
+        if unsafe_count == 0:
+            trajectory = trajectory + path[:-1]
+        else:
+            trajectory = trajectory + safe_subpath(path, altitudes, h_hard)
+
+        # Convert trajectory to S_hat-like matrix
+        visited = path_to_boolean_matrix(trajectory, x.graph, x.S)
+
+        # Normalization factor
+        max_size = float(np.count_nonzero(true_S_hat_epsilon))
+
+        # Performance
+        coverage = 100 * np.count_nonzero(
+            np.logical_and(visited, true_S_hat_epsilon)) / max_size
+
+        # Print
+        print("Unsafe evaluations: " + str(unsafe_count))
+        print("Coverage: " + str(coverage))
+
+        if unsafe_count > 0:
             break
-    plot_paper(altitudes, visited, world_shape, './no_safe_exploration.pdf')
-    x.plot_S(visited)
+
+    if save_performance:
+        file_name = "mars unsafe experiment"
+
+        np.savez(file_name, coverage=coverage, altitudes=x.altitudes,
+                visited=visited, world_shape=world_shape)
 
 ############################### RANDOM ########################################
 if random_experiment:
