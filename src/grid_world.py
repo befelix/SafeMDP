@@ -12,7 +12,7 @@ from .SafeMDP_class import (reachable_set, returnable_set, SafeMDP,
 
 __all__ = ['compute_true_safe_set', 'compute_true_S_hat', 'compute_S_hat0',
            'grid_world_graph', 'grid', 'GridWorld', 'draw_gp_sample',
-           'states_to_nodes', 'nodes_to_states']
+           'states_to_nodes', 'nodes_to_states', 'shortest_path']
 
 
 def compute_true_safe_set(world_shape, altitude, h):
@@ -654,3 +654,40 @@ def draw_gp_sample(kernel, world_shape, step_size):
     cov = kernel.K(coord) + np.eye(coord.shape[0]) * 1e-10
     sample = np.random.multivariate_normal(np.zeros(coord.shape[0]), cov)
     return sample, coord
+
+
+def shortest_path(source, next_sample, G):
+    """
+    Computes shortest safe path from a source to the next state-action pair
+    the agent needs to sample
+
+    Parameters
+    ----------
+    source: int
+        Staring node for the path
+    next_sample: (int, int)
+        Next state-action pair the agent needs to sample. First entry is the
+        number that indicates the state. Second entry indicates the action
+    G: networkx DiGraph
+        Graph that indicates the dynamics and that is linked to S matrix
+
+    Returns
+    -------
+    path: list
+        shortest safe path
+    """
+
+    # Extract safe graph
+    safe_edges = [edge for edge in G.edges_iter(data=True) if edge[2]['safe']]
+    graph_safe = nx.DiGraph(safe_edges)
+
+    # Compute shortest path
+    target = next_sample[0]
+    action = next_sample[1]
+    path = nx.astar_path(graph_safe, source, target)
+
+    for _, next_node, data in graph_safe.out_edges(nbunch=target, data=True):
+        if data["action"] == action:
+            path = path + [next_node]
+
+    return path
