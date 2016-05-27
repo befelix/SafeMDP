@@ -13,7 +13,7 @@ from .SafeMDP_class import (reachable_set, returnable_set, SafeMDP,
 __all__ = ['compute_true_safe_set', 'compute_true_S_hat', 'compute_S_hat0',
            'grid_world_graph', 'grid', 'GridWorld', 'draw_gp_sample',
            'states_to_nodes', 'nodes_to_states', 'shortest_path',
-           'path_to_boolean_matrix']
+           'path_to_boolean_matrix', 'safe_subpath']
 
 
 def compute_true_safe_set(world_shape, altitude, h):
@@ -731,3 +731,38 @@ def path_to_boolean_matrix(path, graph, S):
                 break
     bool_mat[succ, 0] = True
     return bool_mat
+
+
+def safe_subpath(path, altitudes, h):
+    """
+    Computes the maximum subpath of path along which the safety constraint is
+    not violated
+    Parameters
+    ----------
+    path: np.array
+        Contains the nodes that are visited along the path
+    altitudes: np.array
+        1-d vector with altitudes for each node
+    h: float
+        Safety threshold
+
+    Returns
+    -------
+    subpath: np.array
+        Maximum subpath of path that fulfills the safety constraint
+
+    """
+    # Initialize subpath
+    subpath = [path[0]]
+
+    # Loop through path
+    for j in range(len(path) - 1):
+        prev = path[j]
+        succ = path[j + 1]
+
+        # Check safety constraint
+        if altitudes[prev] - altitudes[succ] >= h:
+            subpath = subpath + [succ]
+        else:
+            break
+    return subpath

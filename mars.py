@@ -18,22 +18,10 @@ from src.grid_world import *
 print(sys.version)
 
 
-def safe_subpath(path, altitudes, h):
-    subpath = [path[0]]
-    for j in range(len(path) - 1):
-        prev = path[j]
-        succ = path[j + 1]
-        if altitudes[prev] - altitudes[succ] >= h:
-            subpath = subpath + [succ]
-        else:
-            break
-    return subpath
-
-
-# Control plotting and saving
+# Control experiments and saving
 save_performance = True
 random_experiment = False
-non_safe_experiment = False
+non_safe_experiment = True
 non_ergodic_experiment = False
 no_expanders_exploration = True
 
