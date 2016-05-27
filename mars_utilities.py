@@ -8,6 +8,33 @@ import GPy
 
 
 def mars_map(plot_map=False, interpolation=False):
+    """
+    Extract the map for the simulation from the HiRISE data. If the HiRISE
+    data is not in the current folder it will be downloaded and converted to
+    GeoTiff extension with gdal.
+
+    Parameters
+    ----------
+    plot_map: bool
+        If true plots the map that will be used for exploration
+    interpolation: bool
+        If true the data of the map will be interpolated with splines to
+        obtain a finer grid
+
+    Returns
+    -------
+    altitudes: np.array
+        1-d vector with altitudes for each node
+    coord: np.array
+        Coordinate of the map we use for exploration
+    world_shape: tuple
+        Size of the grid world (rows, columns)
+    step_size: tuple
+        Step size for the grid (row, column)
+    num_of_points: int
+        Interpolation parameter. Indicates the scaling factor for the
+        original step size
+    """
 
     # Define the dimension of the map we want to investigate and its resolution
     world_shape = (120, 70)
@@ -88,6 +115,46 @@ def mars_map(plot_map=False, interpolation=False):
 def initialize_SafeMDP_object(altitudes, coord, world_shape, step_size, L=0.2,
                               beta=2, length=14.5, sigma_n=0.075, start_x=60,
                               start_y=61):
+    """
+
+    Parameters
+    ----------
+    altitudes: np.array
+        1-d vector with altitudes for each node
+    coord: np.array
+        Coordinate of the map we use for exploration
+    world_shape: tuple
+        Size of the grid world (rows, columns)
+    step_size: tuple
+        Step size for the grid (row, column)
+    L: float
+        Lipschitz constant to compute expanders
+    beta: float
+        Scaling factor for confidence intervals
+    length: float
+        Lengthscale for Matern kernel
+    sigma_n:
+        Standard deviation for gaussian noise
+    start_x: int
+        x coordinate of the starting point
+    start_y:
+        y coordinate of the starting point
+
+    Returns
+    -------
+    start: int
+        Node number of initial state
+    x: SafeMDP
+        Instance of the SafeMDP class for the mars exploration problem
+    true_S_hat: np.array
+        True S_hat if safety feature is known with no error and h_hard is used
+    true_S_hat_epsilon: np.array
+        True S_hat if safety feature is known up to epsilon and h is used
+    h_hard: float
+        True safety thrshold. It can be different from the safety threshold
+        used for classification in case the agent needs to use extra caution
+        (in our experiments h=25 deg, h_har=30 deg)
+    """
 
     # Safety threshold
     h = -np.tan(np.pi / 9. + np.pi / 36.) * step_size[0]
@@ -138,6 +205,33 @@ def initialize_SafeMDP_object(altitudes, coord, world_shape, step_size, L=0.2,
 
 
 def performance_metrics(path, x, true_S_hat_epsilon, true_S_hat, h_hard):
+    """
+
+    Parameters
+    ----------
+    path: np.array
+        Nodes of the shortest safe path
+    x: SafeMDP
+         Instance of the SafeMDP class for the mars exploration problem
+     true_S_hat_epsilon: np.array
+        True S_hat if safety feature is known up to epsilon and h is used
+    true_S_hat: np.array
+        True S_hat if safety feature is known with no error and h_hard is used
+    h_hard: float
+        True safety thrshold. It can be different from the safety threshold
+        used for classification in case the agent needs to use extra caution
+        (in our experiments h=25 deg, h_har=30 deg)
+
+    Returns
+    -------
+    unsafe_transitions: int
+        Number of unsafe transitions along the path
+    coverage: float
+        Percentage of coverage of true_S_hat_epsilon
+    false_safe: int
+        Number of misclassifications (classifing something as safe when it
+        acutally is unsafe according to h_hard )
+    """
 
     # Count unsafe transitions along the path
     path_altitudes = x.altitudes[path]
@@ -151,5 +245,3 @@ def performance_metrics(path, x, true_S_hat_epsilon, true_S_hat, h_hard):
     false_safe = np.count_nonzero(np.logical_and(x.S_hat, ~true_S_hat))
 
     return unsafe_transitions, coverage, false_safe
-
-
