@@ -18,21 +18,6 @@ from src.grid_world import *
 print(sys.version)
 
 
-def path_to_boolean_matrix(path, G, S):
-    bool_mat = np.zeros_like(S, dtype=bool)
-    for i in range(len(path) - 1):
-        prev = path[i]
-        succ = path[i + 1]
-        for _, next_node , data in G.out_edges(nbunch=prev, data=True):
-            if next_node == succ:
-                bool_mat[prev, 0] = True
-                a = data["action"]
-                bool_mat[prev, a] = True
-                break
-    bool_mat[succ, 0] = True
-    return bool_mat
-
-
 def safe_subpath(path, altitudes, h):
     subpath = [path[0]]
     for j in range(len(path) - 1):

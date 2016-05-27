@@ -12,7 +12,8 @@ from .SafeMDP_class import (reachable_set, returnable_set, SafeMDP,
 
 __all__ = ['compute_true_safe_set', 'compute_true_S_hat', 'compute_S_hat0',
            'grid_world_graph', 'grid', 'GridWorld', 'draw_gp_sample',
-           'states_to_nodes', 'nodes_to_states', 'shortest_path']
+           'states_to_nodes', 'nodes_to_states', 'shortest_path',
+           'path_to_boolean_matrix']
 
 
 def compute_true_safe_set(world_shape, altitude, h):
@@ -669,7 +670,7 @@ def shortest_path(source, next_sample, G):
         Next state-action pair the agent needs to sample. First entry is the
         number that indicates the state. Second entry indicates the action
     G: networkx DiGraph
-        Graph that indicates the dynamics and that is linked to S matrix
+        Graph that indicates the dynamics. It is linked to S matrix
 
     Returns
     -------
@@ -691,3 +692,42 @@ def shortest_path(source, next_sample, G):
             path = path + [next_node]
 
     return path
+
+
+def path_to_boolean_matrix(path, graph, S):
+    """
+    Computes a S-like matrix for approaches where performances is based
+    on the trajectory of the agent (e.g. unsafe or random exploration)
+    Parameters
+    ----------
+    path: np.array
+        Contains the nodes that are visited along the path
+    graph: networkx.DiGraph
+        Graph that indicates the dynamics
+    S: np.array
+        Array describing the safe set (needed for initialization)
+
+    Returns
+    -------
+    bool_mat: np.array
+        S-like array that is true for all the states and state-action pairs
+        along the path
+    """
+
+    # Initialize matrix
+    bool_mat = np.zeros_like(S, dtype=bool)
+
+    # Go through path to find actions
+    for i in range(len(path) - 1):
+
+        prev = path[i]
+        succ = path[i + 1]
+
+        for _, next_node, data in graph.out_edges(nbunch=prev, data=True):
+            if next_node == succ:
+                bool_mat[prev, 0] = True
+                a = data["action"]
+                bool_mat[prev, a] = True
+                break
+    bool_mat[succ, 0] = True
+    return bool_mat
