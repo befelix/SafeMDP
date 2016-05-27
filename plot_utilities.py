@@ -135,3 +135,46 @@ def plot_paper(altitudes, S_hat, world_shape, fileName, surf=False,
         plt.show()
     else:
         raise ValueError("Coordinates are needed for 3D plots")
+
+
+def plot_dist_from_C(mu, var, beta, altitudes, world_shape):
+
+    # Lower and upper C on heights
+    sigma = beta * np.sqrt(var)
+    l = np.squeeze(mu - sigma)
+    u = np.squeeze(mu + sigma)
+
+    # Initialize
+    dist_from_confidence_interval = np.zeros(altitudes.size, dtype=float)
+
+    # Above u
+    diff_u = altitudes - u
+    dist_from_confidence_interval[ diff_u > 0] = diff_u[diff_u > 0]
+
+    # Below l
+    diff_l = altitudes - l
+    dist_from_confidence_interval[diff_l < 0] = diff_l[diff_l < 0]
+
+    # Define limits
+    max_value = np.max(dist_from_confidence_interval)
+    min_value = np.min(dist_from_confidence_interval)
+    limit = np.max([max_value, np.abs(min_value)])
+
+    # Plot
+    plt.figure()
+    plt.imshow(
+        np.reshape(dist_from_confidence_interval, world_shape).T, origin='lower',
+        interpolation='nearest', vmin=-limit, vmax=limit)
+    title = "Distance from confidence interval"
+    plt.title(title)
+    plt.colorbar()
+    plt.show()
+
+
+def plot_coverage(coverage_over_t):
+    plt.figure()
+    plt.plot(coverage_over_t)
+    title = "Coverage over time"
+    plt.title(title)
+    plt.show()
+
