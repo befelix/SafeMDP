@@ -32,8 +32,8 @@ def safe_subpath(path, altitudes, h):
 
 # Control plotting and saving
 save_performance = True
-random_experiment = False
-non_safe_experiment = True
+random_experiment = True
+non_safe_experiment = False
 non_ergodic_experiment = False
 no_expanders_exploration = False
 
@@ -105,7 +105,6 @@ if non_safe_experiment:
     x.S[:] = True
 
     # Simulation loop
-    t = time.time()
     unsafe_count = 0
     source = start
     trajectory = []
@@ -137,6 +136,7 @@ if non_safe_experiment:
             np.logical_and(visited, true_S_hat_epsilon)) / max_size
 
         # Print
+        print("----UNSAFE EXPERIMENT---")
         print("Unsafe evaluations: " + str(unsafe_count))
         print("Coverage: " + str(coverage))
 
@@ -151,41 +151,54 @@ if non_safe_experiment:
 
 ############################### RANDOM ########################################
 if random_experiment:
-    kernel = GPy.kern.Matern52(input_dim=2, lengthscale=length,
-                               variance=100.)
-    lik = GPy.likelihoods.Gaussian(variance=sigma_n ** 2)
-    gp = GPy.core.GP(X, Y, kernel, lik)
-    # Define SafeMDP object
-    x = GridWorld(gp, world_shape, step_size, beta, altitudes, h, np.ones_like(
-        S0, dtype=bool), S_hat0, L, update_dist=25)
+
+    # Get mars data
+    altitudes, coord, world_shape, step_size, num_of_points = mars_map()
+
+    # Initialize object for simulation
+    start, x, true_S_hat, true_S_hat_epsilon, h_hard = initialize_SafeMDP_object(
+        altitudes, coord, world_shape, step_size)
 
     source = start
-    trajectory = []
-    unsafe = False
-    for i in range(time_steps):
+    trajectory = [source]
+
+    for i in range(600):
+
+        # Choose action at random
         a = np.random.choice([1, 2, 3, 4])
+
+        # Add resulting state to trajectory
         for _, next_node, data in x.graph.out_edges(nbunch=source, data=True):
             if data["action"] == a:
-                h_prev = altitudes[source]
-                h_succ = altitudes[next_node]
+                trajectory = trajectory + [next_node]
                 source = next_node
-                if h_prev - h_succ >= h_hard:
-                    trajectory = trajectory + [next_node]
-                else:
-                    unsafe = True
-                    break
-        if unsafe:
-            break
-    # trajectory = np.unique(trajectory)
-    # visited = np.zeros_like(S0, dtype=bool)
-    # visited[trajectory, 0] = True
-    visited = path_to_boolean_matrix(trajectory, x.graph, S0)
+
+    # Check safety
+    path_altitudes = x.altitudes[trajectory]
+    unsafe_count = np.sum(-np.diff(path_altitudes) < h_hard)
+
+    # Get trajectory up to first unsafe transition
+    trajectory = safe_subpath(trajectory, x.altitudes, h_hard)
+
+    # Convert trajectory to S_hat-like matrix
+    visited = path_to_boolean_matrix(trajectory, x.graph, x.S)
+
+    # Normalization factor
+    max_size = float(np.count_nonzero(true_S_hat_epsilon))
+
+    # Performance
     coverage = 100 * np.count_nonzero(np.logical_and(visited,
                                                 true_S_hat_epsilon))/max_size
-    false_safe = np.count_nonzero(np.logical_and(x.S_hat, ~true_S_hat))
-    print(coverage, i)
-    plot_paper(altitudes, visited, world_shape, './rand_exploration.pdf')
-    x.plot_S(visited)
+    # Print
+    print("----RANDOM EXPERIMENT---")
+    print("Unsafe evaluations: " + str(unsafe_count))
+    print("Coverage: " + str(coverage))
+
+    if save_performance:
+        file_name = "mars random experiment"
+
+        np.savez(file_name, coverage=coverage, altitudes=x.altitudes,
+                visited=visited, world_shape=world_shape)
 
 ############################# NON ERGODIC #####################################
 if non_ergodic_experiment:
