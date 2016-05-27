@@ -20,9 +20,9 @@ print(sys.version)
 
 # Control experiments and saving
 save_performance = True
-random_experiment = False
+random_experiment = True
 non_safe_experiment = True
-non_ergodic_experiment = False
+non_ergodic_experiment = True
 no_expanders_exploration = True
 
 ############################## SAFE ###########################################
@@ -35,7 +35,7 @@ start, x, true_S_hat, true_S_hat_epsilon, h_hard = initialize_SafeMDP_object(
     altitudes, coord, world_shape, step_size)
 
 # Initialize for performance storage
-time_steps = 20
+time_steps = 525
 coverage_over_t = np.empty(time_steps, dtype=float)
 
 # Simulation loop
