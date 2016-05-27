@@ -32,9 +32,9 @@ def safe_subpath(path, altitudes, h):
 
 # Control plotting and saving
 save_performance = True
-random_experiment = True
+random_experiment = False
 non_safe_experiment = False
-non_ergodic_experiment = False
+non_ergodic_experiment = True
 no_expanders_exploration = False
 
 # Get mars data
@@ -162,7 +162,7 @@ if random_experiment:
     source = start
     trajectory = [source]
 
-    for i in range(600):
+    for i in range(time_steps):
 
         # Choose action at random
         a = np.random.choice([1, 2, 3, 4])
@@ -202,61 +202,63 @@ if random_experiment:
 
 ############################# NON ERGODIC #####################################
 if non_ergodic_experiment:
-    kernel = GPy.kern.Matern52(input_dim=2, lengthscale=length,
-                               variance=100.)
-    lik = GPy.likelihoods.Gaussian(variance=sigma_n ** 2)
-    gp = GPy.core.GP(X, Y, kernel, lik)
-    h = -np.tan(np.pi / 9. + np.pi / 36.) * step_size[0]
+
+    # Get mars data
+    altitudes, coord, world_shape, step_size, num_of_points = mars_map()
 
     # Need to remove expanders otherwise next sample will be in G and
     # therefore in S_hat before I can set S_hat = S
-    L_non_ergodic = 100.
+    L_non_ergodic = 1000.
 
-    # Define SafeMDP object
-    x = GridWorld(gp, world_shape, step_size, beta, altitudes, h, S0, S_hat0,
-                  L_non_ergodic, update_dist=25)
-
-    # Insert samples from (s, a) in S_hat0 (needs to be more general in
-    # case for the central state not all actions are safe)
-    tmp = np.arange(x.coord.shape[0])
-    s_vec_ind = np.random.choice(tmp[np.all(x.S_hat[:, 1:], axis=1)])
-
-    for i in range(5):
-        x.add_observation(s_vec_ind, 1)
-        x.add_observation(s_vec_ind, 2)
-        x.add_observation(s_vec_ind, 3)
-        x.add_observation(s_vec_ind, 4)
-
-    # Remove samples used for GP initialization
-    x.gp.set_XY(x.gp.X[n_samples:, :], x.gp.Y[n_samples:])
+    # Initialize object for simulation
+    start, x, true_S_hat, true_S_hat_epsilon, h_hard = initialize_SafeMDP_object(
+        altitudes, coord, world_shape, step_size, L=L_non_ergodic)
 
     # Simulation loop
-    t = time.time()
     unsafe_count = 0
     source = start
+
     for i in range(time_steps):
         x.update_sets()
+
+        # Remove ergodicity properties
         x.S_hat = x.S.copy()
+
         next_sample = x.target_sample()
         x.add_observation(*next_sample)
         try:
-            path_safety, source, path = check_shortest_path(source, next_sample,
-                                                  x.graph, h_hard, altitudes)
+            path = shortest_path(source, next_sample, x.graph)
+            source = path[-1]
+
+            # Check safety
+            path_altitudes = x.altitudes[path]
+            unsafe_transitions = np.sum(-np.diff(path_altitudes) < h_hard)
+            unsafe_count += unsafe_transitions
         except Exception:
             print ("No safe path available")
             break
-        unsafe_count += not path_safety
 
+    # For coverage we consider every state that has at least one action
+    # classified as safe
     x.S_hat[:, 0] = np.any(x.S_hat[:, 1:], axis=1)
+
+    # Normalization factor
+    max_size = float(np.count_nonzero(true_S_hat_epsilon))
+
     # Performance
     coverage = 100 * np.count_nonzero(np.logical_and(x.S_hat,
                                                 true_S_hat_epsilon))/max_size
 
-    # Store and print
-    print(coverage, unsafe_count, i)
-    plot_paper(altitudes, x.S_hat, world_shape,
-               './no_ergodic_exploration.pdf')
-    x.plot_S(x.S_hat)
+    # Print
+    print("----NON ERGODIC EXPERIMENT---")
+    print("Unsafe evaluations: " + str(unsafe_count))
+    print("Coverage: " + str(coverage))
+
+    if save_performance:
+        file_name = "mars non ergodic experiment"
+
+        np.savez(file_name, coverage=coverage, altitudes=x.altitudes,
+                S_hat=x.S_hat, world_shape=world_shape)
 
 ################################## NO EXPANDERS ###############################
 if no_expanders_exploration:
