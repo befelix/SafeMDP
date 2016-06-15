@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 import GPy
 
 
+__all__ = ['mars_map', 'initialize_SafeMDP_object', 'performance_metrics']
+
+
 def mars_map(plot_map=False, interpolation=False):
     """
     Extract the map for the simulation from the HiRISE data. If the HiRISE
