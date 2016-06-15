@@ -1,19 +1,14 @@
 from __future__ import division, print_function
 
 import sys
-import os
 import time
 
-import GPy
-import matplotlib.pyplot as plt
 import numpy as np
-from osgeo import gdal
-import networkx as nx
-from scipy import interpolate
 
-from plot_utilities import *
-from mars_utilities import *
 from safemdp.grid_world import *
+from mars_utilities import (mars_map, initialize_SafeMDP_object,
+                            performance_metrics)
+from plot_utilities import *
 
 print(sys.version)
 
