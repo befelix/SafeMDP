@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from grid_world import *
-from src.grid_world import (compute_true_safe_set, compute_S_hat0,
-                            compute_true_S_hat)
+from safemdp.grid_world import (compute_true_safe_set, compute_S_hat0,
+                                compute_true_S_hat)
 
 # Define world
 world_shape = (20, 20)

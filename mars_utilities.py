@@ -1,4 +1,4 @@
-from src.grid_world import *
+from safemdp.grid_world import *
 from osgeo import gdal
 from scipy import interpolate
 import numpy as np

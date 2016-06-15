@@ -8,8 +8,8 @@ from numpy.testing import *
 
 from .utilities import *
 
-from src.SafeMDP_class import reachable_set, returnable_set
-from src.grid_world import compute_true_safe_set, grid_world_graph
+from safemdp.SafeMDP_class import reachable_set, returnable_set
+from safemdp.grid_world import compute_true_safe_set, grid_world_graph
 from .SafeMDP_class import link_graph_and_safe_set
 
 

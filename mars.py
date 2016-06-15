@@ -13,7 +13,7 @@ from scipy import interpolate
 
 from plot_utilities import *
 from mars_utilities import *
-from src.grid_world import *
+from safemdp.grid_world import *
 
 print(sys.version)
 
