@@ -20,7 +20,7 @@ setup(
         'GPy >= 0.8.0',
         'numpy >= 1.7.2',
         'scipy >= 0.16',
-        'matplotlib >= 1.5',
+        'matplotlib >= 1.5.0',
         'networkx >= 1.1',
     ],
 )
