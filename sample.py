@@ -1,4 +1,4 @@
-from __future__ import division, print_function
+from __future__ import division, print_function, absolute_import
 
 import time
 
@@ -6,9 +6,8 @@ import GPy
 import matplotlib.pyplot as plt
 import numpy as np
 
-from grid_world import *
 from safemdp.grid_world import (compute_true_safe_set, compute_S_hat0,
-                                compute_true_S_hat)
+                                compute_true_S_hat, draw_gp_sample, GridWorld)
 
 # Define world
 world_shape = (20, 20)
