@@ -48,6 +48,7 @@ def mars_map(plot_map=False, interpolation=False):
         if not os.path.exists("./mars.IMG"):
             import urllib
 
+            print('Downloading MARS map, this make take a while...')
             # Download the IMG file
             urllib.urlretrieve(
                 "http://www.uahirise.org/PDS/DTM/PSP/ORB_010200_010299"
@@ -55,7 +56,9 @@ def mars_map(plot_map=False, interpolation=False):
                 "/DTEEC_010228_1490_016320_1490_A01.IMG", "mars.IMG")
 
         # Convert to tif
+        print('Converting map to geotif...')
         os.system("gdal_translate -of GTiff ./mars.IMG ./mars.tif")
+        print('Done')
 
     # Read the data with gdal module
     gdal.UseExceptions()
