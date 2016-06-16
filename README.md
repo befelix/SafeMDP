@@ -14,6 +14,8 @@ python setup.py install
 
 # Usage
 
+The documentation of the library is available on <a href="http://safemdp.readthedocs.io/en/latest/" target="_blank">Read the Docs</a>
+
 The file `examples/sample.py` implements a simple examples that samples a random world from a Gaussian process and shows exploration results.
 
 The code for the experiments in the paper can be found in the `examples/mars/` directory.
