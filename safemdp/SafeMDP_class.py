@@ -10,6 +10,31 @@ __all__ = ['SafeMDP', 'link_graph_and_safe_set', 'reachable_set',
 
 
 class SafeMDP(object):
+    """Base class for safe exploration in MDPs.
+
+    This class only provides basic options to compute the safely reachable
+    and returnable sets. The actual update of the safety feature must be done
+    in a class that inherits from `SafeMDP`. See `safempd.GridWorld` for an
+    example.
+
+    Parameters
+    ----------
+    graph: networkx.DiGraph
+        The graph that models the MDP. Each edge has an attribute `safe` in its
+        metadata, which determines the safety of the transition.
+    gp: GPy.core.GPRegression
+        A Gaussian process model that can be used to determine the safety of
+        transitions. Exact structure depends heavily on the usecase.
+    S_hat0: boolean array
+        An array that has True on the ith position if the ith node in the graph
+        is part of the safe set.
+    h: float
+        The safety threshold.
+    L: float
+        The lipschitz constant
+    beta: float, optional
+        The confidence interval used by the GP model.
+    """
     def __init__(self, graph, gp, S_hat0, h, L, beta=2):
         super(SafeMDP, self).__init__()
         # Scalar for gp confidence intervals
