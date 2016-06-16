@@ -7,9 +7,8 @@ Welcome to SafeMDP's documentation!
 ===================================
 
 
-Contents:
-
 .. toctree::
+   :caption: Contents
    :maxdepth: 3
 
 .. automodule:: safemdp
