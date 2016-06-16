@@ -2,7 +2,7 @@
 
 Code for safe exploration in Markov Decision Processes (MDPs). This code accompanies the paper
 
-M. Turchetta, F. Berkenkamp, A. Krause, "Safe Exploration in Finite Markov Decision Processes with Gaussian Processes", ArXiv, 2016.
+M. Turchetta, F. Berkenkamp, A. Krause, "Safe Exploration in Finite Markov Decision Processes with Gaussian Processes", ArXiv, 2016, <a href="http://arxiv.org/abs/1606.04753" target="_blank"> 	arXiv:1606.04753 [cs.LG]</a>
 
 # Installation
 
