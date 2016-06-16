@@ -32,10 +32,19 @@ MOCK_MODULES = ['GPy',
                 'mpl_toolkits',
                 'mpl_toolkits.mplot3d',
                 'matplotlib',
-                'matplotlib.pyplot']
+                'matplotlib.pyplot',
+                'networkx',
+                'nose',
+                'nose.tools',
+                'numpy',
+                'scipy',
+                'scipy.interpolate',
+                'scipy.spatial',
+                'scipy.spatial.distance',
+               ]
 
-#for mod_name in MOCK_MODULES:
-#	sys.modules[mod_name] = mock.Mock()
+for mod_name in MOCK_MODULES:
+    sys.modules[mod_name] = mock.Mock()
 
 sys.path.insert(0, os.path.abspath('../'))
 
