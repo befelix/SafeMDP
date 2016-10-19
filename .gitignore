@@ -7,3 +7,8 @@
 # Data files
 *.IMG
 *.tif
+
+# Documentation
+doc/safemdp.*.rst
+doc/_build
+

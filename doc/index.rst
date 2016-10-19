@@ -6,16 +6,11 @@
 Welcome to SafeMDP's documentation!
 ===================================
 
-
 .. toctree::
    :caption: Contents
    :maxdepth: 3
 
-.. automodule:: safemdp
-   :members:
-   :inherited-members:
-   :undoc-members:
-   :show-inheritance: 
+   api
 
 
 Indices and tables

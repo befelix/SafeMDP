@@ -67,6 +67,11 @@ extensions = [
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['']
 
+# Generate an autosummary with one file per function.
+autosummary_generate = True
+
+autodoc_default_flags = []
+
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
@@ -252,7 +257,7 @@ html_theme = 'sphinx_rtd_theme'
 #   'da', 'de', 'en', 'es', 'fi', 'fr', 'h', 'it', 'ja'
 #   'nl', 'no', 'pt', 'ro', 'r', 'sv', 'tr', 'zh'
 #
-# html_search_language = 'en'
+html_search_language = 'en'
 
 # A dictionary with options for the search language support, empty by default.
 # 'ja' uses this config value.
