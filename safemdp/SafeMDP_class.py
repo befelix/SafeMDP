@@ -1,9 +1,9 @@
-from __future__ import division, print_function
+from __future__ import division, print_function, absolute_import
 
 import networkx as nx
 import numpy as np
 
-from utilities import *
+from .utilities import *
 
 __all__ = ['SafeMDP', 'link_graph_and_safe_set', 'reachable_set',
            'returnable_set']
