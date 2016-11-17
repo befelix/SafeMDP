@@ -95,7 +95,7 @@ def link_graph_and_safe_set(graph, safe_set):
     """
     for node, next_node in graph.edges_iter():
         edge = graph[node][next_node]
-        edge['safe'] = safe_set[node:node+1, edge['action']]
+        edge['safe'] = safe_set[node:node + 1, edge['action']]
 
 
 def reachable_set(graph, initial_nodes, out=None):
@@ -149,7 +149,7 @@ def reachable_set(graph, initial_nodes, out=None):
                 if not visited[next_node, 0]:
                     stack.append(next_node)
                     visited[next_node, 0] = True
-                    
+
     if out is None:
         return visited
 

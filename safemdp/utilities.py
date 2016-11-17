@@ -79,5 +79,3 @@ def max_out_degree(graph):
         for _, degree in graph.out_degree_iter():
             yield degree
     return max(degree_generator(graph))
-
-

@@ -7,7 +7,7 @@ from scipy.spatial.distance import cdist
 
 from .utilities import DifferenceKernel
 from .SafeMDP_class import (reachable_set, returnable_set, SafeMDP,
-                               link_graph_and_safe_set)
+                            link_graph_and_safe_set)
 
 
 __all__ = ['compute_true_safe_set', 'compute_true_S_hat', 'compute_S_hat0',
@@ -422,7 +422,8 @@ class GridWorld(SafeMDP):
 
             mu_right, s_right = self.gp.predict(mat_right,
                                                 kern=DifferenceKernel(
-                                                    self.gp.kern), full_cov=False)
+                                                    self.gp.kern),
+                                                full_cov=False)
             s_right = self.beta * np.sqrt(s_right)
 
             self.l[prev_right, 2, None] = mu_right - s_right
@@ -453,7 +454,8 @@ class GridWorld(SafeMDP):
             # Actions left and right
             mu_right, s_right = self.gp.predict(self._mat_right,
                                                 kern=DifferenceKernel(
-                                                    self.gp.kern), full_cov=False)
+                                                    self.gp.kern),
+                                                full_cov=False)
             s_right = self.beta * np.sqrt(s_right)
             self.l[self._prev_right, 2, None] = mu_right - s_right
             self.u[self._prev_right, 2, None] = mu_right + s_right
