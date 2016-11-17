@@ -22,5 +22,5 @@ find safemdp -name \*.py -exec pep8 --ignore=E402 {} +
 
 # Run unit tests
 echo "Running unit tests"
-python -m safemdp.test
+nosetests --with-doctest safemdp
 
