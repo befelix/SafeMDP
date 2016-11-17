@@ -3,9 +3,6 @@ python:
   - 2.7
 notifications:
   email: false
-env:
-  - PEP=true
-  - PEP=false
 
 # Setup anaconda
 before_install:
@@ -27,5 +24,6 @@ install:
 
 # Run tests
 script:
-  - if $PEP; then find safemdp -name \*.py -exec pep8 --ignore=E402 {} +; else python -m safemdp.test; fi
+  - find safemdp -name \*.py -exec pep8 --ignore=E402 {} +
+  - python -m safemdp.test
 
