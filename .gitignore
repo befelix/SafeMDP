@@ -1,5 +1,7 @@
 .idea
 .ipynb_checkpoints
+.coverage
+htmlcov
 
 # Python files
 *.pyc
