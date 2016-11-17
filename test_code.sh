@@ -18,7 +18,7 @@ cd $(get_script_dir)
 
 # Run PEP8
 echo "Running style tests"
-find safemdp -name \*.py -exec pep8 --ignore=E402 {} +
+flake8 safemdp --exclude test.py --ignore=E402,W503
 
 # Run unit tests
 echo "Running unit tests"

@@ -1,6 +1,5 @@
 from __future__ import division
 
-import networkx as nx
 import numpy as np
 
 __all__ = ['DifferenceKernel', 'max_out_degree']
